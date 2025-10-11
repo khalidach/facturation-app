@@ -125,7 +125,38 @@ export default function FacturePDF({ facture }) {
         <p>Arrêté la présente facture à la somme de :</p>
         <p className="font-bold capitalize">{totalInWords}</p>
       </div>
-      {/* Footer */}
+      <div className="mt-16 border-t pt-5">
+        <div className="flex gap-2 justify-center flex-wrap">
+          <div className="flex gap-2 flex-wrap justify-center w-full">
+            {settings?.address && (
+              <p className="text-lg">Address: {settings.address} </p>
+            )}
+            {settings?.phone && (
+              <p className="text-lg"> Tel: {settings.phone} </p>
+            )}
+            {settings?.email && (
+              <p className="text-lg"> Email: {settings.email}</p>
+            )}
+          </div>
+          <div className="flex gap-2 flex-wrap justify-center w-full">
+            {settings?.ice && <p className="text-sm">ICE: {settings.ice}</p>}
+            {settings?.if && <p className="text-sm">/ IF: {settings.if}</p>}
+            {settings?.rc && <p className="text-sm">/ RC: {settings.rc}</p>}
+            {settings?.patente && (
+              <p className="text-sm">/ Patente: {settings.patente}</p>
+            )}
+            {settings?.cnss && (
+              <p className="text-sm">/ CNSS: {settings.cnss}</p>
+            )}
+          </div>
+          {settings?.bankName && (
+            <div className="flex gap-2 flex-wrap justify-center w-full">
+              <p className="text-sm">Bank: {settings.bankName}</p>
+              <p className="text-sm">RIB: {settings.rib}</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

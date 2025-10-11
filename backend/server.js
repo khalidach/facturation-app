@@ -5,7 +5,9 @@ const db = require("./database");
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+// Increase the body parser limit to accept larger payloads (e.g., for base64 images)
+app.use(bodyParser.json({ limit: "10mb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
 // --- Factures API ---
 

@@ -38,4 +38,26 @@ CREATE TABLE IF NOT EXISTS settings (
 db.exec(createFacturesTable);
 db.exec(createSettingsTable);
 
+// --- Schema Migration ---
+// Check if the 'factures' table exists before trying to alter it.
+const tableCheck = db
+  .prepare(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='factures'"
+  )
+  .get();
+if (tableCheck) {
+  // Check if the facture_number_int column is missing and add it.
+  const columns = db.prepare("PRAGMA table_info(factures)").all();
+  const hasIntColumn = columns.some((col) => col.name === "facture_number_int");
+
+  if (!hasIntColumn) {
+    try {
+      db.exec("ALTER TABLE factures ADD COLUMN facture_number_int INTEGER");
+      console.log("Database schema migrated: Added facture_number_int column.");
+    } catch (error) {
+      console.error("Failed to migrate database schema:", error);
+    }
+  }
+}
+
 module.exports = db;

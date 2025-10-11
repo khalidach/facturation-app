@@ -3,15 +3,26 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { Save } from "lucide-react";
 
+// API helper to handle responses and errors
+const handleApiResponse = async (response) => {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || `Request failed: ${response.statusText}`
+    );
+  }
+  return response.json();
+};
+
 const api = {
   getSettings: () =>
-    fetch("http://localhost:3001/api/settings").then((res) => res.json()),
+    fetch("http://localhost:3001/api/settings").then(handleApiResponse),
   updateSettings: (data) =>
     fetch("http://localhost:3001/api/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    }).then((res) => res.json()),
+    }).then(handleApiResponse),
 };
 
 export default function Settings() {
