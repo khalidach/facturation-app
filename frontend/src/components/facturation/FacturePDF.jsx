@@ -26,22 +26,22 @@ export default function FacturePDF({ facture }) {
       style={{ width: "210mm", minHeight: "297mm" }}
     >
       <div className="flex-grow">
-        <div className="grid grid-cols-2 gap-10 mb-8">
-          <div>
+        <div className="flex justify-between items-center mb-8">
+          {/* Left Side: Logo and Agency Name */}
+          <div className="flex items-center gap-4">
             {settings?.logo && (
               <img
                 src={settings.logo}
                 alt="Agency Logo"
-                className="h-16 w-auto mb-4"
+                className="h-20 w-auto"
               />
             )}
-            <h1 className="text-xl font-bold mb-2">
+            <h1 className="text-xl font-bold">
               {settings?.agencyName || "Your Agency"}
             </h1>
-            {settings?.address && <p>{settings.address}</p>}
-            {settings?.phone && <p>Tél: {settings.phone}</p>}
-            {settings?.email && <p>Email: {settings.email}</p>}
           </div>
+
+          {/* Right Side: Invoice Details */}
           <div className="text-right">
             <h2 className="text-3xl font-bold uppercase text-gray-700">
               {facture.type}
