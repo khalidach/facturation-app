@@ -8,16 +8,16 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: {
-        input: "src/main.js",
+      lib: {
+        entry: "src/main.ts", // or src/main.js if using JavaScript
       },
     },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
-      rollupOptions: {
-        input: "src/backend/preload.js",
+      lib: {
+        entry: "src/backend/preload.ts", // or src/backend/preload.js
       },
     },
   },
