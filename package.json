@@ -1,16 +1,25 @@
 {
   "name": "facturation-app",
   "version": "1.0.0",
+  "description": "Desktop Facturation Application using Electron and React/Vite",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-vite build",
-    "preview": "electron-vite preview"
+    "build": "vite build",
+    "package": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
   },
+  "keywords": [
+    "electron",
+    "react",
+    "vite",
+    "facturation"
+  ],
+  "author": "Khalidach",
+  "license": "ISC",
   "dependencies": {
     "@tanstack/react-query": "^5.45.1",
     "better-sqlite3": "^11.1.2",
-    "electron-squirrel-startup": "^1.0.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
     "lucide-react": "^0.395.0",
@@ -20,24 +29,50 @@
     "react-router-dom": "^6.23.1"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.4.0",
-    "@electron-forge/maker-deb": "^7.4.0",
-    "@electron-forge/maker-rpm": "^7.4.0",
-    "@electron-forge/maker-squirrel": "^7.4.0",
-    "@electron-forge/maker-zip": "^7.4.0",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.4.0",
-    "@electron-forge/plugin-fuses": "^7.4.0",
-    "@electron/fuses": "^1.8.0",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
-    "electron": "31.0.2",
-    "electron-vite": "^2.3.0",
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.4.5",
     "vite": "^5.3.1",
     "vite-tsconfig-paths": "^4.3.2"
+  },
+  "build": {
+    "appId": "com.facturation.desktop",
+    "productName": "Facturation App",
+    "asar": true,
+    "files": [
+      "src/main.js",
+      "src/backend/preload.js",
+      "src/backend/db.js",
+      {
+        "from": "dist",
+        "to": "dist",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "buildResources": "assets",
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
