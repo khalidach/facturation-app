@@ -1,61 +1,37 @@
 {
   "name": "facturation-app",
   "version": "1.0.0",
-  "description": "Desktop Facturation Application using Electron and React/Vite",
-  "main": "src/main.js",
+  "description": "Desktop application for facturation",
+  "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "vite build",
-    "package": "electron-builder",
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "package": "npm run build:frontend && electron-builder",
     "postinstall": "electron-builder install-app-deps"
   },
-  "keywords": [
-    "electron",
-    "react",
-    "vite",
-    "facturation"
-  ],
-  "author": "Khalidach",
+  "keywords": [],
+  "author": "Your Name",
   "license": "ISC",
   "dependencies": {
-    "@tanstack/react-query": "^5.45.1",
-    "better-sqlite3": "^11.1.2",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^2.5.1",
-    "lucide-react": "^0.395.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-hot-toast": "^2.4.1",
-    "react-router-dom": "^6.23.1"
+    "better-sqlite3": "^9.4.3",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
   },
   "devDependencies": {
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.4.19",
-    "electron": "^28.3.3",
-    "electron-builder": "^24.13.3",
-    "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.4",
-    "typescript": "^5.4.5",
-    "vite": "^5.3.1",
-    "vite-tsconfig-paths": "^4.3.2"
+    "electron": "^28.2.3",
+    "electron-builder": "^24.9.1"
   },
   "build": {
-    "appId": "com.facturation.desktop",
-    "productName": "Facturation App",
+    "appId": "com.facturation.app",
+    "productName": "Facturation Pro",
     "asar": true,
     "files": [
-      "src/main.js",
-      "src/backend/preload.js",
-      "src/backend/db.js",
-      {
-        "from": "dist",
-        "to": "dist",
-        "filter": [
-          "**/*"
-        ]
-      }
+      "main.js",
+      "preload.js",
+      "frontend/dist/**/*",
+      "backend/**/*",
+      "facturation.db"
     ],
     "directories": {
       "buildResources": "assets",

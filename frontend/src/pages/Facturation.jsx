@@ -1,66 +1,86 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Download, Edit2, Trash2, FileText } from "lucide-react";
-import FactureForm from "@/components/FactureForm";
-import FacturePDF from "@/components/FacturePDF";
+import Modal from "../components/Modal.jsx";
+import ConfirmationModal from "../components/modals/ConfirmationModal.jsx";
+import FactureForm from "../components/facturation/FactureForm.jsx";
+import FacturePDF from "../components/facturation/FacturePDF.jsx";
 import { toast } from "react-hot-toast";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
-import { Facture, PaginatedResponse } from "@/models";
+import PaginationControls from "../components/PaginationControls.jsx";
+
+// Mock API functions - replace with actual API calls to your backend
+const api = {
+  getFactures: (page = 1, limit = 10) =>
+    fetch(
+      `http://localhost:3001/api/factures?page=${page}&limit=${limit}`
+    ).then((res) => res.json()),
+  createFacture: (data) =>
+    fetch("http://localhost:3001/api/factures", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then((res) => res.json()),
+  updateFacture: (id, data) =>
+    fetch(`http://localhost:3001/api/factures/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).then((res) => res.json()),
+  deleteFacture: (id) =>
+    fetch(`http://localhost:3001/api/factures/${id}`, { method: "DELETE" }),
+};
 
 export default function Facturation() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingFacture, setEditingFacture] = useState<Facture | null>(null);
-  const [factureToDelete, setFactureToDelete] = useState<number | null>(null);
-  const [factureToPreview, setFactureToPreview] = useState<Facture | null>(
-    null
-  );
+  const [editingFacture, setEditingFacture] = useState(null);
+  const [factureToDelete, setFactureToDelete] = useState(null);
+  const [factureToPreview, setFactureToPreview] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const facturesPerPage = 10;
 
-  const { data: facturesResponse, isLoading } = useQuery<
-    PaginatedResponse<Facture>
-  >({
+  const { data: facturesResponse, isLoading } = useQuery({
     queryKey: ["factures", currentPage],
-    queryFn: () => window.electronAPI.getFactures(currentPage, facturesPerPage),
+    queryFn: () => api.getFactures(currentPage, facturesPerPage),
+    placeholderData: (prev) => prev,
   });
 
   const factures = facturesResponse?.data ?? [];
   const pagination = facturesResponse?.pagination;
 
   const { mutate: createFacture } = useMutation({
-    mutationFn: (data: Omit<Facture, "id" | "facture_number">) =>
-      window.electronAPI.createFacture(data),
+    mutationFn: api.createFacture,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document created successfully!");
       setIsModalOpen(false);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
 
   const { mutate: updateFacture } = useMutation({
-    mutationFn: (data: Facture) => window.electronAPI.updateFacture(data),
+    mutationFn: (data) => api.updateFacture(data.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document updated successfully!");
       setIsModalOpen(false);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
 
   const { mutate: deleteFacture } = useMutation({
-    mutationFn: (id: number) => window.electronAPI.deleteFacture(id),
+    mutationFn: api.deleteFacture,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document deleted successfully!");
       setFactureToDelete(null);
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error) => toast.error(error.message),
   });
 
-  const handleSave = (data: Omit<Facture, "id" | "facture_number">) => {
+  const handleSave = (data) => {
     if (editingFacture) {
       updateFacture({ ...editingFacture, ...data });
     } else {
@@ -68,7 +88,7 @@ export default function Facturation() {
     }
   };
 
-  const handleDownloadPDF = async (facture: Facture) => {
+  const handleDownloadPDF = async (facture) => {
     setFactureToPreview(facture);
     await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -96,7 +116,7 @@ export default function Facturation() {
             Facturation
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Create and manage your invoices and quotes.
+            Manage your invoices and quotes.
           </p>
         </div>
         <button
@@ -115,16 +135,14 @@ export default function Facturation() {
         <table className="w-full">
           <thead className="bg-gray-50 dark:bg-gray-700/50">
             <tr>
-              {["N°", "Type", "Client Name", "Date", "Total", "Actions"].map(
-                (h) => (
-                  <th
-                    key={h}
-                    className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
-                  >
-                    {h}
-                  </th>
-                )
-              )}
+              {["N°", "Type", "Client", "Date", "Total", "Actions"].map((h) => (
+                <th
+                  key={h}
+                  className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -139,7 +157,7 @@ export default function Facturation() {
                 <td colSpan={6} className="text-center p-12">
                   <FileText className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" />
                   <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                    No Documents
+                    No documents
                   </h3>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Create your first document to get started.
@@ -171,7 +189,7 @@ export default function Facturation() {
                     <div className="flex items-center space-x-2">
                       <button
                         onClick={() => handleDownloadPDF(facture)}
-                        className="p-2 text-gray-400 hover:text-green-600"
+                        className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg"
                       >
                         <Download className="w-4 h-4" />
                       </button>
@@ -180,13 +198,13 @@ export default function Facturation() {
                           setEditingFacture(facture);
                           setIsModalOpen(true);
                         }}
-                        className="p-2 text-gray-400 hover:text-blue-600"
+                        className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setFactureToDelete(facture.id)}
-                        className="p-2 text-gray-400 hover:text-red-600"
+                        className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-gray-700 rounded-lg"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -197,47 +215,40 @@ export default function Facturation() {
             )}
           </tbody>
         </table>
-      </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-4xl">
-            <h2 className="text-xl font-bold mb-4">
-              {editingFacture ? "Update Document" : "New Document"}
-            </h2>
-            <FactureForm
-              onSave={handleSave}
-              onCancel={() => setIsModalOpen(false)}
-              existingFacture={editingFacture}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="p-4">
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={setCurrentPage}
             />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {factureToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-            <h3 className="text-lg font-bold">Delete Document</h3>
-            <p className="my-4">
-              Are you sure you want to delete this document?
-            </p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setFactureToDelete(null)}
-                className="px-4 py-2 rounded-lg border"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => deleteFacture(factureToDelete)}
-                className="px-4 py-2 rounded-lg bg-red-600 text-white"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingFacture(null);
+        }}
+        title={editingFacture ? "Update Document" : "New Document"}
+        size="xl"
+      >
+        <FactureForm
+          onSave={handleSave}
+          onCancel={() => setIsModalOpen(false)}
+          existingFacture={editingFacture}
+        />
+      </Modal>
+
+      <ConfirmationModal
+        isOpen={!!factureToDelete}
+        onClose={() => setFactureToDelete(null)}
+        onConfirm={() => deleteFacture(factureToDelete)}
+        title="Delete Document"
+        message="Are you sure you want to delete this document?"
+      />
 
       {factureToPreview && (
         <div style={{ position: "fixed", left: "-9999px", top: "-9999px" }}>

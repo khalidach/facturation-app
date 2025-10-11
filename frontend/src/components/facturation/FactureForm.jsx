@@ -1,40 +1,22 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Facture, FactureItem } from "../models";
 import { Plus, Trash2 } from "lucide-react";
 
-interface FactureFormProps {
-  onSave: (data: Omit<Facture, "id" | "facture_number">) => void;
-  onCancel: () => void;
-  existingFacture?: Facture | null;
-  showMarginOnNew?: boolean;
-}
-
-interface FactureItemForm extends Omit<FactureItem, "total"> {
-  prixUnitaire: number;
-  fraisServiceUnitaire: number;
-}
-
-const emptyItem: FactureItemForm = {
+const emptyItem = {
   description: "",
   quantity: 1,
   prixUnitaire: 0,
   fraisServiceUnitaire: 0,
 };
 
-export default function FactureForm({
-  onSave,
-  onCancel,
-  existingFacture,
-  showMarginOnNew = true,
-}: FactureFormProps) {
-  const [type, setType] = useState<"facture" | "devis">("facture");
+export default function FactureForm({ onSave, onCancel, existingFacture }) {
+  const [type, setType] = useState("facture");
   const [clientName, setClientName] = useState("");
   const [clientAddress, setClientAddress] = useState("");
   const [clientICE, setClientICE] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [items, setItems] = useState<FactureItemForm[]>([emptyItem]);
+  const [items, setItems] = useState([emptyItem]);
   const [notes, setNotes] = useState("");
-  const [showMargin, setShowMargin] = useState(showMarginOnNew);
+  const [showMargin, setShowMargin] = useState(true);
 
   useEffect(() => {
     if (existingFacture) {
@@ -44,45 +26,12 @@ export default function FactureForm({
       setClientICE(existingFacture.clientICE || "");
       setDate(new Date(existingFacture.date).toISOString().split("T")[0]);
       setShowMargin(existingFacture.showMargin ?? true);
-
-      let parsedItems: FactureItemForm[] = [emptyItem];
-      if (existingFacture.items) {
-        try {
-          const itemsData =
-            typeof existingFacture.items === "string"
-              ? JSON.parse(existingFacture.items)
-              : existingFacture.items;
-          if (Array.isArray(itemsData) && itemsData.length > 0) {
-            parsedItems = itemsData.map((item) => ({
-              description: item.description || "",
-              quantity: Number(item.quantity) || 1,
-              prixUnitaire: Number(item.prixUnitaire) || 0,
-              fraisServiceUnitaire: Number(item.fraisServiceUnitaire) || 0,
-            }));
-          }
-        } catch (e) {
-          console.error("Failed to parse facture items:", e);
-        }
-      }
-      setItems(parsedItems);
+      setItems(JSON.parse(existingFacture.items));
       setNotes(existingFacture.notes || "");
-    } else {
-      setType("facture");
-      setClientName("");
-      setClientAddress("");
-      setClientICE("");
-      setDate(new Date().toISOString().split("T")[0]);
-      setItems([emptyItem]);
-      setNotes("");
-      setShowMargin(showMarginOnNew);
     }
-  }, [existingFacture, showMarginOnNew]);
+  }, [existingFacture]);
 
-  const handleItemChange = (
-    index: number,
-    field: keyof FactureItemForm,
-    value: string | number
-  ) => {
+  const handleItemChange = (index, field, value) => {
     const newItems = [...items];
     const item = { ...newItems[index], [field]: value };
     if (!showMargin) {
@@ -93,8 +42,7 @@ export default function FactureForm({
   };
 
   const addItem = () => setItems([...items, { ...emptyItem }]);
-  const removeItem = (index: number) =>
-    setItems(items.filter((_, i) => i !== index));
+  const removeItem = (index) => setItems(items.filter((_, i) => i !== index));
 
   const calculatedTotals = useMemo(() => {
     let prixTotalHorsFrais = 0;
@@ -111,6 +59,7 @@ export default function FactureForm({
 
       prixTotalHorsFrais += quantite * prixUnitaire;
       totalFraisServiceTTC += quantite * fraisServiceUnitaireTTC;
+
       return { ...item, total: montantTotal };
     });
 
@@ -127,22 +76,14 @@ export default function FactureForm({
     };
   }, [items, showMargin]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    const finalItems = calculatedTotals.itemsWithTotals.map((item) => ({
-      description: item.description,
-      quantity: item.quantity,
-      prixUnitaire: item.prixUnitaire,
-      fraisServiceUnitaire: item.fraisServiceUnitaire,
-      total: item.total,
-    }));
-
     onSave({
       clientName,
       clientAddress,
       clientICE,
       date,
-      items: finalItems,
+      items: calculatedTotals.itemsWithTotals,
       type,
       showMargin,
       prixTotalHorsFrais: calculatedTotals.prixTotalHorsFrais,
@@ -154,80 +95,46 @@ export default function FactureForm({
   };
 
   const gridColsClass = showMargin ? "grid-cols-12" : "grid-cols-10";
-  const descColSpan = showMargin ? "md:col-span-4" : "md:col-span-4";
-  const priceColSpan = showMargin ? "md:col-span-2" : "md:col-span-2";
-  const totalColSpan = showMargin ? "md:col-span-2" : "md:col-span-2";
+  const descColSpan = "md:col-span-4";
+  const priceColSpan = "md:col-span-2";
+  const totalColSpan = "md:col-span-2";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <style>{`
-        .toggle-checkbox:checked { right: 0; border-color: #3b82f6; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #3b82f6; }
-      `}</style>
-      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-        <label
-          htmlFor="show-margin-toggle"
-          className="font-medium text-gray-700"
-        >
-          Display Service Fees & TVA
-        </label>
-        <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-          <input
-            type="checkbox"
-            name="show-margin-toggle"
-            id="show-margin-toggle"
-            checked={showMargin}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              setShowMargin(checked);
-              if (!checked) {
-                setItems(
-                  items.map((item) => ({ ...item, fraisServiceUnitaire: 0 }))
-                );
-              }
-            }}
-            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
-          />
-          <label
-            htmlFor="show-margin-toggle"
-            className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
-          ></label>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            document type
+            Document Type
           </label>
           <select
             value={type}
-            onChange={(e) => setType(e.target.value as "facture" | "devis")}
+            onChange={(e) => setType(e.target.value)}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
           >
-            <option value="facture">facture</option>
-            <option value="devis">devis</option>
+            <option value="facture">Invoice</option>
+            <option value="devis">Quote</option>
           </select>
         </div>
       </div>
       <h3 className="text-lg font-medium text-gray-900 border-b pb-2">
-        client details
+        Client Info
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            client name
+            Client Name
           </label>
           <input
             type="text"
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+            required
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            client address
+            Client Address
           </label>
           <input
             type="text"
@@ -237,7 +144,7 @@ export default function FactureForm({
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">ice</label>
+          <label className="block text-sm font-medium text-gray-700">ICE</label>
           <input
             type="text"
             value={clientICE}
@@ -247,7 +154,7 @@ export default function FactureForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            date
+            Date
           </label>
           <input
             type="date"
@@ -259,20 +166,8 @@ export default function FactureForm({
         </div>
       </div>
 
-      <h3 className="text-lg font-medium text-gray-900 border-b pb-2">items</h3>
+      <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Items</h3>
       <div className="space-y-4">
-        <div
-          className={`hidden md:grid ${gridColsClass} gap-2 text-sm font-medium text-gray-500`}
-        >
-          <div className={descColSpan}>DESIGNATION</div>
-          <div className="col-span-1 text-center">QU</div>
-          <div className={`${priceColSpan} text-left`}>PRIX UNITAIRE</div>
-          {showMargin && (
-            <div className="col-span-2 text-left">FRAIS. SCE UNITAIRE</div>
-          )}
-          <div className={`${totalColSpan} text-left`}>MONTANT TOTAL</div>
-          <div className="col-span-1"></div>
-        </div>
         {calculatedTotals.itemsWithTotals.map((item, index) => (
           <div
             key={index}
@@ -281,7 +176,7 @@ export default function FactureForm({
             <div className={`col-span-12 ${descColSpan}`}>
               <input
                 type="text"
-                placeholder="Item description"
+                placeholder="Description"
                 value={item.description}
                 onChange={(e) =>
                   handleItemChange(index, "description", e.target.value)
@@ -363,74 +258,29 @@ export default function FactureForm({
 
       <div className="flex justify-end mt-6">
         <div className="w-full max-w-sm space-y-2 text-sm">
-          {showMargin && (
-            <>
-              <div className="flex justify-between p-2 bg-gray-50 rounded-md">
-                <span className="font-medium text-gray-600">
-                  Prix Total H. Frais de SCE
-                </span>
-                <span className="font-semibold text-gray-800">
-                  {calculatedTotals.prixTotalHorsFrais.toLocaleString(
-                    undefined,
-                    {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }
-                  )}{" "}
-                  Mad
-                </span>
-              </div>
-              <div className="flex justify-between p-2">
-                <span className="font-medium text-gray-600">
-                  Frais de Service Hors TVA
-                </span>
-                <span className="font-semibold text-gray-800">
-                  {calculatedTotals.totalFraisServiceHT.toLocaleString(
-                    undefined,
-                    {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }
-                  )}{" "}
-                  Mad
-                </span>
-              </div>
-              <div className="flex justify-between p-2">
-                <span className="font-medium text-gray-600">TVA 20%</span>
-                <span className="font-semibold text-gray-800">
-                  {calculatedTotals.tva.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  Mad
-                </span>
-              </div>
-            </>
-          )}
+          {/* Totals display */}
           <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2 p-2 bg-gray-100 rounded-md">
-            <span>Total Facture</span>
+            <span>Total</span>
             <span>
               {calculatedTotals.totalFacture.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}{" "}
-              mad
+              MAD
             </span>
           </div>
         </div>
       </div>
-
       <div>
-        <label className="block text-sm font-medium text-gray-700">notes</label>
+        <label className="block text-sm font-medium text-gray-700">Notes</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Additional notes or terms..."
+          placeholder="Add any notes here..."
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
           rows={3}
         ></textarea>
       </div>
-
       <div className="flex justify-end space-x-3 pt-6 border-t mt-6">
         <button
           type="button"
@@ -443,7 +293,7 @@ export default function FactureForm({
           type="submit"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          {existingFacture ? "Update Document" : "Create Document"}
+          {existingFacture ? "Update" : "Create"}
         </button>
       </div>
     </form>

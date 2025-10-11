@@ -1,6 +1,4 @@
-// frontend/src/services/numberToWords.ts
-
-function toWords(num: number): string {
+function toWords(num) {
   const units = [
     "",
     "un",
@@ -52,32 +50,20 @@ function toWords(num: number): string {
 
   if (Math.floor(num / 1000) > 0) {
     const thousands = Math.floor(num / 1000);
-    if (thousands > 1) {
-      words += toWords(thousands) + " mille ";
-    } else {
-      words += "mille ";
-    }
+    words += (thousands > 1 ? toWords(thousands) : "") + " mille ";
     num %= 1000;
   }
 
   if (Math.floor(num / 100) > 0) {
     const hundreds = Math.floor(num / 100);
-    if (hundreds > 1) {
-      words += toWords(hundreds) + " cent ";
-    } else {
-      words += "cent ";
-    }
-    if (num % 100 === 0 && hundreds > 1) {
-      words = words.trim() + "s ";
-    }
+    words +=
+      (hundreds > 1 ? units[hundreds] : "") +
+      " cent" +
+      (hundreds > 1 && num % 100 === 0 ? "s " : " ");
     num %= 100;
   }
 
   if (num > 0) {
-    if (words !== "") {
-      words += "";
-    }
-
     if (num < 10) {
       words += units[num];
     } else if (num < 20) {
@@ -86,15 +72,10 @@ function toWords(num: number): string {
       const ten = Math.floor(num / 10);
       const unit = num % 10;
       words += tens[ten];
-      if (ten === 8 && unit === 0) {
-        words += "s";
-      }
       if (unit > 0) {
-        if (ten === 7 || ten === 9) {
-          words = words.slice(0, -3) + teens[unit];
-        } else {
-          words += (unit === 1 && ten !== 8 ? " et " : "-") + units[unit];
-        }
+        if (unit === 1 && ten < 8) words += " et ";
+        else words += "-";
+        words += units[unit];
       }
     }
   }
@@ -102,9 +83,8 @@ function toWords(num: number): string {
   return words.trim();
 }
 
-export function numberToWordsFr(num: number | string): string {
+export function numberToWordsFr(num) {
   const numericValue = typeof num === "string" ? parseFloat(num) : num;
-
   if (typeof numericValue !== "number" || isNaN(numericValue)) {
     return "Invalid number";
   }

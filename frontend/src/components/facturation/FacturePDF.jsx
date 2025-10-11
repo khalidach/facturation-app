@@ -1,20 +1,24 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Facture, FacturationSettings } from "@/models";
-import { numberToWordsFr } from "../services/numberToWords";
+import { numberToWordsFr } from "../../services/numberToWords";
 
-interface FacturePDFProps {
-  facture: Facture;
-}
+const api = {
+  getSettings: () =>
+    fetch("http://localhost:3001/api/settings").then((res) => res.json()),
+};
 
-export default function FacturePDF({ facture }: FacturePDFProps) {
-  const { data: settings } = useQuery<FacturationSettings>({
+export default function FacturePDF({ facture }) {
+  const { data: settings } = useQuery({
     queryKey: ["settings"],
-    queryFn: () => window.electronAPI.getSettings(),
+    queryFn: api.getSettings,
   });
 
   const totalInWords = numberToWordsFr(facture.total);
   const showMargin = facture.showMargin ?? true;
+  const parsedItems =
+    typeof facture.items === "string"
+      ? JSON.parse(facture.items)
+      : facture.items;
 
   return (
     <div
@@ -24,7 +28,11 @@ export default function FacturePDF({ facture }: FacturePDFProps) {
       <div className="grid grid-cols-2 gap-10 mb-8">
         <div>
           {settings?.logo && (
-            <img src={settings.logo} alt="Agency Logo" className="h-20 mb-4" />
+            <img
+              src={settings.logo}
+              alt="Agency Logo"
+              className="h-16 w-auto mb-4"
+            />
           )}
           <h1 className="text-xl font-bold mb-2">
             {settings?.agencyName || "Your Agency"}
@@ -44,7 +52,6 @@ export default function FacturePDF({ facture }: FacturePDFProps) {
           {settings?.ice && <p className="text-sm">ICE: {settings.ice}</p>}
         </div>
       </div>
-
       {facture?.clientName && (
         <div className="mt-8 border-t border-b py-4">
           <p>{facture.clientName}</p>
@@ -52,8 +59,7 @@ export default function FacturePDF({ facture }: FacturePDFProps) {
           {facture.clientICE && <p>ICE: {facture.clientICE}</p>}
         </div>
       )}
-
-      <table className="w-full mt-28 text-xs border-collapse">
+      <table className="w-full mt-10 text-xs border-collapse">
         <thead className="bg-gray-100">
           <tr>
             <th className="p-2 text-left font-semibold border">DESIGNATION</th>
@@ -72,7 +78,7 @@ export default function FacturePDF({ facture }: FacturePDFProps) {
           </tr>
         </thead>
         <tbody>
-          {facture.items.map((item, index) => (
+          {parsedItems.map((item, index) => (
             <tr key={index}>
               <td className="p-2 border">{item.description}</td>
               <td className="p-2 text-center border">{item.quantity}</td>
@@ -100,51 +106,11 @@ export default function FacturePDF({ facture }: FacturePDFProps) {
           ))}
         </tbody>
       </table>
-
       <div className="flex justify-end mt-5">
         <div className="w-1/2 space-y-1 text-xs">
-          {showMargin && (
-            <>
-              <div className="flex justify-between p-2">
-                <span className="font-medium">Prix Total H. Frais de SCE</span>
-                <span>
-                  {Number(facture.prixTotalHorsFrais).toLocaleString(
-                    undefined,
-                    {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }
-                  )}{" "}
-                  MAD
-                </span>
-              </div>
-              <div className="flex justify-between p-2">
-                <span className="font-medium">Frais de Service Hors TVA</span>
-                <span>
-                  {Number(facture.totalFraisServiceHT).toLocaleString(
-                    undefined,
-                    {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }
-                  )}{" "}
-                  MAD
-                </span>
-              </div>
-              <div className="flex justify-between p-2">
-                <span className="font-medium">TVA 20%</span>
-                <span>
-                  {Number(facture.tva).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  MAD
-                </span>
-              </div>
-            </>
-          )}
+          {/* Totals */}
           <div className="flex justify-between font-bold text-sm bg-gray-100 p-2 rounded mt-1">
-            <span>Total {facture.type == "devis" ? "Devis" : "Factures"}</span>
+            <span>Total {facture.type === "devis" ? "Devis" : "Facture"}</span>
             <span>
               {Number(facture.total).toLocaleString(undefined, {
                 minimumFractionDigits: 2,
@@ -155,44 +121,11 @@ export default function FacturePDF({ facture }: FacturePDFProps) {
           </div>
         </div>
       </div>
-
       <div className="mt-8 text-xs">
         <p>Arrêté la présente facture à la somme de :</p>
         <p className="font-bold capitalize">{totalInWords}</p>
       </div>
-
-      <div className="mt-16 border-t pt-5">
-        <div className="flex gap-2 justify-center flex-wrap">
-          <div className="flex gap-2 flex-wrap justify-center w-full">
-            {settings?.address && (
-              <p className="text-lg">Address: {settings.address} </p>
-            )}
-            {settings?.phone && (
-              <p className="text-lg"> Tel: {settings.phone} </p>
-            )}
-            {settings?.email && (
-              <p className="text-lg"> Email: {settings.email}</p>
-            )}
-          </div>
-          <div className="flex gap-2 flex-wrap justify-center w-full">
-            {settings?.ice && <p className="text-sm">ICE: {settings.ice}</p>}
-            {settings?.if && <p className="text-sm">/ IF: {settings.if}</p>}
-            {settings?.rc && <p className="text-sm">/ RC: {settings.rc}</p>}
-            {settings?.patente && (
-              <p className="text-sm">/ Patente: {settings.patente}</p>
-            )}
-            {settings?.cnss && (
-              <p className="text-sm">/ CNSS: {settings.cnss}</p>
-            )}
-          </div>
-          {settings?.bankName && (
-            <div className="flex gap-2 flex-wrap justify-center w-full">
-              <p className="text-sm">Bank: {settings.bankName}</p>
-              <p className="text-sm">RIB: {settings.rib}</p>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Footer */}
     </div>
   );
 }
