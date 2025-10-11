@@ -9,7 +9,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       lib: {
-        entry: "src/main.ts", // or src/main.js if using JavaScript
+        entry: "src/main.js", // or src/main.js if using JavaScript
       },
     },
   },
@@ -17,7 +17,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       lib: {
-        entry: "src/backend/preload.ts", // or src/backend/preload.js
+        entry: "src/backend/preload.js", // or src/backend/preload.js
       },
     },
   },
