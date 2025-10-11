@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron-vite dev",
+    "start": "electron .",
     "build": "electron-vite build",
     "preview": "electron-vite preview"
   },
