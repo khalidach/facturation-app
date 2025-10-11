@@ -10,14 +10,6 @@ import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import PaginationControls from "@/components/PaginationControls.jsx";
 
-import ConfirmationModal from "../components/modals/ConfirmationModal.jsx";
-import FactureForm from "../components/facturation/FactureForm.jsx";
-import FacturePDF from "../components/facturation/FacturePDF.jsx";
-import { toast } from "react-hot-toast";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
-import PaginationControls from "../components/PaginationControls.jsx";
-
 // Mock API functions - replace with actual API calls to your backend
 const api = {
   getFactures: (page = 1, limit = 10) =>
