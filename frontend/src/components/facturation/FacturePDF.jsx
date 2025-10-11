@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { numberToWordsFr } from "../../services/numberToWords";
+import { numberToWordsFr } from "@/services/numberToWords.js";
 
 const api = {
   getSettings: () =>

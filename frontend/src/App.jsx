@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
-import Facturation from "./pages/Facturation.jsx";
-import Settings from "./pages/Settings.jsx";
+import Facturation from "@/pages/Facturation.jsx";
+import Settings from "@/pages/Settings.jsx";
 import { Settings as SettingsIcon, FileText } from "lucide-react";
 
 const queryClient = new QueryClient();
