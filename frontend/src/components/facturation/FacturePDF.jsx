@@ -62,19 +62,52 @@ export default function FacturePDF({ facture }) {
         <table className="w-full mt-56 text-xs border-collapse table-fixed">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2 text-left font-semibold border w-[30%]">
+              <th
+                className="p-2 text-left font-semibold border"
+                style={{
+                  width: showMargin
+                    ? `${(5 / 15) * 100}%`
+                    : `${(5 / 12) * 100}%`,
+                }}
+              >
                 DESIGNATION
               </th>
-              <th className="p-2 text-center font-semibold border">QU</th>
-              <th className="p-2 text-right font-semibold border">
+              <th
+                className="p-2 text-center font-semibold border"
+                style={{
+                  width: showMargin
+                    ? `${(1 / 15) * 100}%`
+                    : `${(1 / 12) * 100}%`,
+                }}
+              >
+                QU
+              </th>
+              <th
+                className="p-2 text-right font-semibold border"
+                style={{
+                  width: showMargin
+                    ? `${(3 / 15) * 100}%`
+                    : `${(3 / 12) * 100}%`,
+                }}
+              >
                 PRIX UNITAIRE
               </th>
               {showMargin && (
-                <th className="p-2 text-right font-semibold border">
+                <th
+                  className="p-2 text-right font-semibold border"
+                  style={{ width: `${(3 / 15) * 100}%` }}
+                >
                   FRAIS. SCE UNITAIRE
                 </th>
               )}
-              <th className="p-2 text-right font-semibold border">
+              <th
+                className="p-2 text-right font-semibold border"
+                style={{
+                  width: showMargin
+                    ? `${(3 / 15) * 100}%`
+                    : `${(3 / 12) * 100}%`,
+                }}
+              >
                 MONTANT TOTAL
               </th>
             </tr>
