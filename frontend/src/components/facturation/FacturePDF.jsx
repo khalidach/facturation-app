@@ -54,7 +54,7 @@ export default function FacturePDF({ facture }) {
         </div>
         <div className="mt-32">
           {facture?.clientName && (
-            <div className="mt-8 border-t border-b py-4">
+            <div className="mt-8 border-t mb-6 border-b py-4">
               <p className="text-lg font-bold">{facture.clientName}</p>
               <p>{facture.clientAddress}</p>
               {facture.clientICE && (
