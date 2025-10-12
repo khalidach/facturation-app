@@ -3,6 +3,8 @@
 **/package-lock.json
 **/yarn.lock
 /backend/models/
+facturation.db
+release/
 
 # Environment variables
 **/.env
