@@ -198,7 +198,7 @@ export default function FacturePDF({ facture }) {
                   </div>
                 </>
               )}
-              <div className="flex justify-between font-bold text-sm bg-gray-100 p-2 rounded mt-1">
+              <div className="flex justify-between items-center font-bold text-sm bg-gray-100 p-2 rounded mt-1">
                 <span>
                   Total {facture.type === "devis" ? "Devis" : "Facture"}
                 </span>

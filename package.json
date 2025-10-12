@@ -37,8 +37,7 @@
       "main.js",
       "preload.js",
       "frontend/dist/**/*",
-      "backend/**/*",
-      "facturation.db"
+      "backend/**/*"
     ],
     "directories": {
       "buildResources": "assets",

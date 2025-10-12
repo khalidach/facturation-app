@@ -2,7 +2,32 @@ const sqlite = require("better-sqlite3");
 const path = require("path");
 const fs = require("fs");
 
-const dbPath = path.join(process.cwd(), "facturation.db");
+let dbPath;
+
+// This logic ensures the database is stored in a persistent location in the packaged app,
+// but remains in the project root during development with nodemon.
+try {
+  // Try to get the electron app module. This will only work when run by Electron.
+  const { app } = require("electron");
+  // This is the standard path for user-specific application data.
+  const userDataPath = app.getPath("userData");
+  // Create a subdirectory for our database to keep things tidy.
+  const dbDirectory = path.join(userDataPath, "data");
+
+  // Ensure the directory exists.
+  if (!fs.existsSync(dbDirectory)) {
+    fs.mkdirSync(dbDirectory, { recursive: true });
+  }
+
+  dbPath = path.join(dbDirectory, "facturation.db");
+  console.log(`Database path set to: ${dbPath}`);
+} catch (error) {
+  // If require('electron') fails, we are likely in a pure Node.js environment (like nodemon).
+  // Fall back to the original behavior for development.
+  dbPath = path.join(process.cwd(), "facturation.db");
+  console.log(`Running outside of Electron. Database path set to: ${dbPath}`);
+}
+
 const db = new sqlite(dbPath);
 
 // Create tables if they don't exist

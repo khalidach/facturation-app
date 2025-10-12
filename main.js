@@ -3,7 +3,7 @@ const path = require("path");
 const server = require("./backend/server");
 
 // Determine if we are in development mode
-const isDev = process.env.NODE_ENV !== "production";
+const isDev = process.env.npm_lifecycle_event === "dev:electron";
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
