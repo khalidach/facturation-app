@@ -10,26 +10,45 @@ import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import PaginationControls from "@/components/PaginationControls.jsx";
 
+// API helper to handle responses and errors
+const handleApiResponse = async (response) => {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.error || `Request failed: ${response.statusText}`
+    );
+  }
+  return response.json();
+};
+
 // Mock API functions - replace with actual API calls to your backend
 const api = {
   getFactures: (page = 1, limit = 10) =>
     fetch(
       `http://localhost:3001/api/factures?page=${page}&limit=${limit}`
-    ).then((res) => res.json()),
+    ).then(handleApiResponse),
   createFacture: (data) =>
     fetch("http://localhost:3001/api/factures", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    }).then((res) => res.json()),
+    }).then(handleApiResponse),
   updateFacture: (id, data) =>
     fetch(`http://localhost:3001/api/factures/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
-    }).then((res) => res.json()),
+    }).then(handleApiResponse),
   deleteFacture: (id) =>
-    fetch(`http://localhost:3001/api/factures/${id}`, { method: "DELETE" }),
+    fetch(`http://localhost:3001/api/factures/${id}`, {
+      method: "DELETE",
+    }).then((res) => {
+      if (!res.ok) {
+        throw new Error("Failed to delete");
+      }
+      // DELETE might not return a body, so we don't call .json()
+      return;
+    }),
 };
 
 export default function Facturation() {

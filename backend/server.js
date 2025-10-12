@@ -74,14 +74,25 @@ app.post("/api/factures", (req, res) => {
           .status(400)
           .json({ error: "Document number already exists." });
       }
+
+      // Parse the integer part from the manual number to store it
+      const numberPart = parseInt(facture_number.split("/")[0], 10);
+      if (!isNaN(numberPart)) {
+        newNum = numberPart;
+      }
     } else {
-      // Get the latest facture number for the given type for auto-increment
-      const lastFactureStmt = db.prepare(
-        "SELECT MAX(facture_number_int) as maxNum FROM factures WHERE type = ?"
-      );
-      const lastFacture = lastFactureStmt.get(type);
-      newNum = (lastFacture.maxNum || 0) + 1;
       const year = new Date(date).getFullYear().toString();
+
+      // ROBUST QUERY: Get the latest number by parsing the facture_number string directly,
+      // which avoids issues with old/bad data in the facture_number_int column.
+      const lastFactureStmt = db.prepare(
+        `SELECT MAX(CAST(SUBSTR(facture_number, 1, INSTR(facture_number, '/') - 1) AS INTEGER)) as maxNum 
+         FROM factures 
+         WHERE type = ? AND STRFTIME('%Y', date) = ?`
+      );
+
+      const lastFacture = lastFactureStmt.get(type, year);
+      newNum = (lastFacture.maxNum || 0) + 1;
       facture_number = `${String(newNum).padStart(3, "0")}/${year}`;
     }
 
