@@ -59,7 +59,7 @@ export default function FacturePDF({ facture }) {
             {facture.clientICE && <p>ICE: {facture.clientICE}</p>}
           </div>
         )}
-        <table className="w-full mt-10 text-xs border-collapse">
+        <table className="w-full mt-16 text-xs border-collapse">
           <thead className="bg-gray-100">
             <tr>
               <th className="p-2 text-left font-semibold border">
@@ -191,7 +191,7 @@ export default function FacturePDF({ facture }) {
               if (settings?.patente)
                 numbers.push(`Patente: ${settings.patente}`);
               if (settings?.cnss) numbers.push(`CNSS: ${settings.cnss}`);
-              if (settings.bankName)
+              if (settings?.bankName && settings?.rib)
                 numbers.push(`Bank ${settings.bankName}: ${settings.rib}`);
 
               return numbers.map((item, idx) => (

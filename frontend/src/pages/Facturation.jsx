@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Download, Edit2, Trash2, FileText } from "lucide-react";
 import Modal from "@/components/Modal.jsx";
@@ -88,24 +88,48 @@ export default function Facturation() {
     }
   };
 
-  const handleDownloadPDF = async (facture) => {
-    setFactureToPreview(facture);
-    await new Promise((resolve) => setTimeout(resolve, 100));
+  useEffect(() => {
+    if (factureToPreview) {
+      const generatePdf = async () => {
+        // A short delay to ensure all content (like images) is loaded
+        await new Promise((resolve) => setTimeout(resolve, 300));
 
-    const input = document.getElementById("pdf-preview");
-    if (input) {
-      html2canvas(input, { scale: 2 }).then((canvas) => {
-        const imgData = canvas.toDataURL("image/png");
-        const pdf = new jsPDF("p", "mm", "a4");
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-        pdf.save(
-          `${facture.type}_${facture.clientName.replace(/\s/g, "_")}.pdf`
-        );
-        setFactureToPreview(null);
-      });
+        const input = document.getElementById("pdf-preview");
+        if (input) {
+          try {
+            toast.loading("Generating PDF...", { id: "pdf-toast" });
+            const canvas = await html2canvas(input, { scale: 2 });
+            const imgData = canvas.toDataURL("image/png");
+            const pdf = new jsPDF("p", "mm", "a4");
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+            pdf.save(
+              `${factureToPreview.type}_${factureToPreview.clientName.replace(
+                /\s/g,
+                "_"
+              )}.pdf`
+            );
+            toast.success("PDF Downloaded!", { id: "pdf-toast" });
+          } catch (error) {
+            console.error("Failed to generate PDF:", error);
+            toast.error("Failed to generate PDF.", { id: "pdf-toast" });
+          } finally {
+            // Reset the state to remove the preview component from the DOM
+            setFactureToPreview(null);
+          }
+        } else {
+          toast.error("PDF preview element not found.");
+          setFactureToPreview(null);
+        }
+      };
+
+      generatePdf();
     }
+  }, [factureToPreview]);
+
+  const handleDownloadPDF = (facture) => {
+    setFactureToPreview(facture);
   };
 
   return (
