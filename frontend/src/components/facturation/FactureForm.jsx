@@ -280,14 +280,18 @@ export default function FactureForm({
             className={`grid ${gridColsClass} gap-2 items-center`}
           >
             <div className={`col-span-12 ${descColSpan}`}>
-              <input
-                type="text"
+              <textarea
                 placeholder="Description"
                 value={item.description}
                 onChange={(e) =>
                   handleItemChange(index, "description", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none overflow-hidden"
+                rows={1}
+                onInput={(e) => {
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
                 required
               />
             </div>

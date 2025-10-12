@@ -52,158 +52,170 @@ export default function FacturePDF({ facture }) {
             {settings?.ice && <p className="text-sm">ICE: {settings.ice}</p>}
           </div>
         </div>
-        {facture?.clientName && (
-          <div className="mt-8 border-t border-b py-4">
-            <p>{facture.clientName}</p>
-            <p>{facture.clientAddress}</p>
-            {facture.clientICE && <p>ICE: {facture.clientICE}</p>}
-          </div>
-        )}
-        <table className="w-full mt-56 text-xs border-collapse table-fixed">
-          <thead className="bg-gray-100">
-            <tr>
-              <th
-                className="p-2 text-left font-semibold border"
-                style={{
-                  width: showMargin
-                    ? `${(5 / 15) * 100}%`
-                    : `${(5 / 12) * 100}%`,
-                }}
-              >
-                DESIGNATION
-              </th>
-              <th
-                className="p-2 text-center font-semibold border"
-                style={{
-                  width: showMargin
-                    ? `${(1 / 15) * 100}%`
-                    : `${(1 / 12) * 100}%`,
-                }}
-              >
-                QU
-              </th>
-              <th
-                className="p-2 text-right font-semibold border"
-                style={{
-                  width: showMargin
-                    ? `${(3 / 15) * 100}%`
-                    : `${(3 / 12) * 100}%`,
-                }}
-              >
-                PRIX UNITAIRE
-              </th>
-              {showMargin && (
+        <div className="mt-32">
+          {facture?.clientName && (
+            <div className="mt-8 border-t border-b py-4">
+              <p className="text-lg font-bold">{facture.clientName}</p>
+              <p>{facture.clientAddress}</p>
+              {facture.clientICE && (
+                <p className="text-lg font-bold">ICE: {facture.clientICE}</p>
+              )}
+            </div>
+          )}
+          <table className="w-full text-xs border-collapse table-fixed">
+            <thead className="bg-gray-100">
+              <tr>
+                <th
+                  className="p-2 text-left font-semibold border"
+                  style={{
+                    width: showMargin
+                      ? `${(5 / 15) * 100}%`
+                      : `${(5 / 12) * 100}%`,
+                  }}
+                >
+                  DESIGNATION
+                </th>
+                <th
+                  className="p-2 text-center font-semibold border"
+                  style={{
+                    width: showMargin
+                      ? `${(1 / 15) * 100}%`
+                      : `${(1 / 12) * 100}%`,
+                  }}
+                >
+                  QU
+                </th>
                 <th
                   className="p-2 text-right font-semibold border"
-                  style={{ width: `${(3 / 15) * 100}%` }}
+                  style={{
+                    width: showMargin
+                      ? `${(3 / 15) * 100}%`
+                      : `${(3 / 12) * 100}%`,
+                  }}
                 >
-                  FRAIS. SCE UNITAIRE
+                  PRIX UNITAIRE
                 </th>
-              )}
-              <th
-                className="p-2 text-right font-semibold border"
-                style={{
-                  width: showMargin
-                    ? `${(3 / 15) * 100}%`
-                    : `${(3 / 12) * 100}%`,
-                }}
-              >
-                MONTANT TOTAL
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {parsedItems.map((item, index) => (
-              <tr key={index}>
-                <td className="p-2 border break-words">{item.description}</td>
-                <td className="p-2 text-center border">{item.quantity}</td>
-                <td className="p-2 text-right border">
-                  {(Number(item.prixUnitaire) || 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </td>
                 {showMargin && (
+                  <th
+                    className="p-2 text-right font-semibold border"
+                    style={{ width: `${(3 / 15) * 100}%` }}
+                  >
+                    FRAIS. SCE UNITAIRE
+                  </th>
+                )}
+                <th
+                  className="p-2 text-right font-semibold border"
+                  style={{
+                    width: showMargin
+                      ? `${(3 / 15) * 100}%`
+                      : `${(3 / 12) * 100}%`,
+                  }}
+                >
+                  MONTANT TOTAL
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {parsedItems.map((item, index) => (
+                <tr key={index}>
+                  <td
+                    className="p-2 border break-words"
+                    style={{ whiteSpace: "pre-wrap" }}
+                  >
+                    {item.description}
+                  </td>
+                  <td className="p-2 text-center border">{item.quantity}</td>
                   <td className="p-2 text-right border">
-                    {(Number(item.fraisServiceUnitaire) || 0).toLocaleString(
+                    {(Number(item.prixUnitaire) || 0).toLocaleString(
                       undefined,
-                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      }
                     )}
                   </td>
-                )}
-                <td className="p-2 text-right border font-semibold">
-                  {(Number(item.total) || 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="flex justify-end mt-5">
-          <div className="w-1/2 space-y-1 text-xs">
-            {showMargin && (
-              <>
-                <div className="flex justify-between p-2">
-                  <span className="font-medium text-gray-600">
-                    Prix Total H. Frais de SCE
-                  </span>
-                  <span className="font-semibold text-gray-800">
-                    {Number(facture.prixTotalHorsFrais).toLocaleString(
-                      undefined,
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }
-                    )}{" "}
-                    MAD
-                  </span>
-                </div>
-                <div className="flex justify-between p-2">
-                  <span className="font-medium text-gray-600">
-                    Frais de Service Hors TVA
-                  </span>
-                  <span className="font-semibold text-gray-800">
-                    {Number(facture.totalFraisServiceHT).toLocaleString(
-                      undefined,
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }
-                    )}{" "}
-                    MAD
-                  </span>
-                </div>
-                <div className="flex justify-between p-2">
-                  <span className="font-medium text-gray-600">TVA 20%</span>
-                  <span className="font-semibold text-gray-800">
-                    {Number(facture.tva).toLocaleString(undefined, {
+                  {showMargin && (
+                    <td className="p-2 text-right border">
+                      {(Number(item.fraisServiceUnitaire) || 0).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                      )}
+                    </td>
+                  )}
+                  <td className="p-2 text-right border font-semibold">
+                    {(Number(item.total) || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    })}{" "}
-                    MAD
-                  </span>
-                </div>
-              </>
-            )}
-            <div className="flex justify-between font-bold text-sm bg-gray-100 p-2 rounded mt-1">
-              <span>
-                Total {facture.type === "devis" ? "Devis" : "Facture"}
-              </span>
-              <span>
-                {Number(facture.total).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{" "}
-                MAD
-              </span>
+                    })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="flex justify-end mt-5">
+            <div className="w-1/2 space-y-1 text-xs">
+              {showMargin && (
+                <>
+                  <div className="flex justify-between p-2">
+                    <span className="font-medium text-gray-600">
+                      Prix Total H. Frais de SCE
+                    </span>
+                    <span className="font-semibold text-gray-800">
+                      {Number(facture.prixTotalHorsFrais).toLocaleString(
+                        undefined,
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
+                      )}{" "}
+                      MAD
+                    </span>
+                  </div>
+                  <div className="flex justify-between p-2">
+                    <span className="font-medium text-gray-600">
+                      Frais de Service Hors TVA
+                    </span>
+                    <span className="font-semibold text-gray-800">
+                      {Number(facture.totalFraisServiceHT).toLocaleString(
+                        undefined,
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }
+                      )}{" "}
+                      MAD
+                    </span>
+                  </div>
+                  <div className="flex justify-between p-2">
+                    <span className="font-medium text-gray-600">TVA 20%</span>
+                    <span className="font-semibold text-gray-800">
+                      {Number(facture.tva).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      MAD
+                    </span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between font-bold text-sm bg-gray-100 p-2 rounded mt-1">
+                <span>
+                  Total {facture.type === "devis" ? "Devis" : "Facture"}
+                </span>
+                <span>
+                  {Number(facture.total).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  MAD
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="mt-8 text-xs">
-          <p>Arrêté la présente facture à la somme de :</p>
-          <p className="font-bold capitalize">{totalInWords}</p>
+          <div className="mt-8 text-xs">
+            <p>Arrêté la présente facture à la somme de :</p>
+            <p className="font-bold capitalize">{totalInWords}</p>
+          </div>
         </div>
       </div>
       <div className="border-t pt-5">
