@@ -204,7 +204,7 @@ export default function Facturation() {
                     {facture.clientName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                    {new Date(facture.date).toLocaleDateString()}
+                    {new Date(facture.date).toLocaleDateString("en-GB")}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
                     {facture.total.toLocaleString()} MAD

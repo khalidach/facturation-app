@@ -82,10 +82,7 @@ app.post("/api/factures", (req, res) => {
       const lastFacture = lastFactureStmt.get(type);
       newNum = (lastFacture.maxNum || 0) + 1;
       const year = new Date(date).getFullYear().toString().slice(-2);
-      facture_number = `${type.toUpperCase()}-${year}-${String(newNum).padStart(
-        4,
-        "0"
-      )}`;
+      facture_number = `${year}-${String(newNum).padStart(5, "0")}`;
     }
 
     const stmt = db.prepare(

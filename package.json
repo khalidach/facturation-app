@@ -10,7 +10,7 @@
     "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [],
-  "author": "Your Name",
+  "author": "khalid achbboukh",
   "license": "ISC",
   "dependencies": {
     "better-sqlite3": "^9.4.3",

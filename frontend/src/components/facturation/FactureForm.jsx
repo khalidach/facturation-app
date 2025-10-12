@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 const emptyItem = {
   description: "",
@@ -18,7 +20,7 @@ export default function FactureForm({
   const [clientName, setClientName] = useState("");
   const [clientAddress, setClientAddress] = useState("");
   const [clientICE, setClientICE] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(new Date());
   const [items, setItems] = useState([emptyItem]);
   const [notes, setNotes] = useState("");
   const [showMargin, setShowMargin] = useState(showMarginOnNew);
@@ -30,7 +32,13 @@ export default function FactureForm({
       setClientName(existingFacture.clientName);
       setClientAddress(existingFacture.clientAddress || "");
       setClientICE(existingFacture.clientICE || "");
-      setDate(new Date(existingFacture.date).toISOString().split("T")[0]);
+      // Safely parse the date from 'YYYY-MM-DD' to avoid timezone issues
+      const dateParts = existingFacture.date.split("-");
+      const year = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+      const day = parseInt(dateParts[2], 10);
+      setDate(new Date(year, month, day));
+
       setShowMargin(existingFacture.showMargin ?? true);
       setFactureNumber(existingFacture.facture_number || "");
 
@@ -60,7 +68,7 @@ export default function FactureForm({
       setClientName("");
       setClientAddress("");
       setClientICE("");
-      setDate(new Date().toISOString().split("T")[0]);
+      setDate(new Date());
       setItems([emptyItem]);
       setNotes("");
       setShowMargin(showMarginOnNew);
@@ -124,12 +132,19 @@ export default function FactureForm({
       total: item.total,
     }));
 
+    // Format date to 'YYYY-MM-DD' for the backend, correcting for timezone offset
+    const dateForBackend = new Date(
+      date.getTime() - date.getTimezoneOffset() * 60000
+    )
+      .toISOString()
+      .split("T")[0];
+
     onSave({
       facture_number: factureNumber,
       clientName,
       clientAddress,
       clientICE,
-      date,
+      date: dateForBackend,
       items: finalItems,
       type,
       showMargin,
@@ -250,10 +265,10 @@ export default function FactureForm({
           <label className="block text-sm font-medium text-gray-700">
             Date
           </label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
+          <DatePicker
+            selected={date}
+            onChange={(d) => setDate(d)}
+            dateFormat="dd/MM/yyyy"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
             required
           />

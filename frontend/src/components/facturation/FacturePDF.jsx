@@ -47,7 +47,7 @@ export default function FacturePDF({ facture }) {
             </h2>
             <p className="text-sm mt-1">N°: {facture.facture_number}</p>
             <p className="text-sm">
-              Date: {new Date(facture.date).toLocaleDateString()}
+              Date: {new Date(facture.date).toLocaleDateString("en-GB")}
             </p>
             {settings?.ice && <p className="text-sm">ICE: {settings.ice}</p>}
           </div>
