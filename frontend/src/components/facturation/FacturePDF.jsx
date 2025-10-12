@@ -27,22 +27,21 @@ export default function FacturePDF({ facture }) {
     >
       <div className="flex-grow">
         <div className="flex justify-between items-center mb-8">
-          {/* Left Side: Logo and Agency Name */}
-          <div className="flex items-center gap-4">
+          {/* Left Side: Logo and Agency Name - Centered vertically */}
+          <div className="flex items-center gap-4 flex-1">
             {settings?.logo && (
               <img
                 src={settings.logo}
                 alt="Agency Logo"
-                className="h-20 w-auto"
+                className="h-20 w-auto block"
               />
             )}
             <h1 className="text-xl font-bold">
               {settings?.agencyName || "Your Agency"}
             </h1>
           </div>
-
-          {/* Right Side: Invoice Details */}
-          <div className="text-right">
+          {/* Right Side: Invoice Details - Centered vertically, text aligned right */}
+          <div className="flex flex-col items-end justify-center flex-1 text-right">
             <h2 className="text-3xl font-bold uppercase text-gray-700">
               {facture.type}
             </h2>
@@ -176,34 +175,32 @@ export default function FacturePDF({ facture }) {
       </div>
       <div className="border-t pt-5">
         <div className="flex gap-2 justify-center flex-wrap">
+          {/* Contact info */}
           <div className="flex gap-2 flex-wrap justify-center w-full">
-            {settings?.address && (
-              <p className="text-lg">Address: {settings.address} </p>
-            )}
-            {settings?.phone && (
-              <p className="text-lg"> Tel: {settings.phone} </p>
-            )}
-            {settings?.email && (
-              <p className="text-lg"> Email: {settings.email}</p>
-            )}
+            {(() => {
+              const numbers = [];
+              if (settings?.agencyName)
+                numbers.push(`Sté. ${settings.agencyName}`);
+              if (settings?.address)
+                numbers.push(`Siège Sociol: ${settings.address}`);
+              if (settings?.phone) numbers.push(`Fix: ${settings.phone}`);
+              if (settings?.email) numbers.push(`Email: ${settings.email}`);
+              if (settings?.ice) numbers.push(`ICE: ${settings.ice}`);
+              if (settings?.if) numbers.push(`IF: ${settings.if}`);
+              if (settings?.rc) numbers.push(`RC: ${settings.rc}`);
+              if (settings?.patente)
+                numbers.push(`Patente: ${settings.patente}`);
+              if (settings?.cnss) numbers.push(`CNSS: ${settings.cnss}`);
+              if (settings.bankName)
+                numbers.push(`Bank ${settings.bankName}: ${settings.rib}`);
+
+              return numbers.map((item, idx) => (
+                <p key={idx} className="text-sm">
+                  {idx > 0 ? `- ${item}` : item}
+                </p>
+              ));
+            })()}
           </div>
-          <div className="flex gap-2 flex-wrap justify-center w-full">
-            {settings?.ice && <p className="text-sm">ICE: {settings.ice}</p>}
-            {settings?.if && <p className="text-sm">/ IF: {settings.if}</p>}
-            {settings?.rc && <p className="text-sm">/ RC: {settings.rc}</p>}
-            {settings?.patente && (
-              <p className="text-sm">/ Patente: {settings.patente}</p>
-            )}
-            {settings?.cnss && (
-              <p className="text-sm">/ CNSS: {settings.cnss}</p>
-            )}
-          </div>
-          {settings?.bankName && (
-            <div className="flex gap-2 flex-wrap justify-center w-full">
-              <p className="text-sm">Bank: {settings.bankName}</p>
-              <p className="text-sm">RIB: {settings.rib}</p>
-            </div>
-          )}
         </div>
       </div>
     </div>
