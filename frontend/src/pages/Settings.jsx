@@ -76,6 +76,21 @@ export default function Settings() {
     return <div>Loading...</div>;
   }
 
+  const companyFields = [
+    { key: "ice", label: "ICE" },
+    { key: "if", label: "IF" },
+    { key: "rc", label: "RC" },
+    { key: "patente", label: "Patente" },
+    { key: "cnss", label: "CNSS" },
+    { key: "address", label: "Address" },
+    { key: "phone", label: "Phone" },
+    { key: "email", label: "Email" },
+    { key: "bankName", label: "Bank Name" },
+    { key: "rib", label: "RIB" },
+    { key: "typeSociete", label: "Type of Societe" },
+    { key: "capital", label: "Capital" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -133,27 +148,15 @@ export default function Settings() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Other fields: ICE, IF, RC etc. */}
-            {[
-              "ice",
-              "if",
-              "rc",
-              "patente",
-              "cnss",
-              "address",
-              "phone",
-              "email",
-              "bankName",
-              "rib",
-            ].map((field) => (
-              <div key={field}>
-                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
-                  {field}
+            {companyFields.map((field) => (
+              <div key={field.key}>
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400">
+                  {field.label}
                 </label>
                 <input
                   type="text"
-                  name={field}
-                  value={settings[field] || ""}
+                  name={field.key}
+                  value={settings[field.key] || ""}
                   onChange={handleChange}
                   className="mt-1 block w-full input"
                 />

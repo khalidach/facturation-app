@@ -212,8 +212,12 @@ export default function FacturePDF({ facture }) {
           <div className="flex gap-2 flex-wrap justify-center w-full">
             {(() => {
               const numbers = [];
-              if (settings?.agencyName)
-                numbers.push(`Sté. ${settings.agencyName}`);
+              if (settings?.agencyName && settings?.typeSociete)
+                numbers.push(
+                  `Sté. ${settings.agencyName} ${settings.typeSociete}`
+                );
+              if (settings?.capital)
+                numbers.push(`Capital: ${settings.capital} Dhs`);
               if (settings?.address)
                 numbers.push(`Siège Sociol: ${settings.address}`);
               if (settings?.phone) numbers.push(`Fix: ${settings.phone}`);
@@ -228,7 +232,7 @@ export default function FacturePDF({ facture }) {
                 numbers.push(`Bank ${settings.bankName}: ${settings.rib}`);
 
               return numbers.map((item, idx) => (
-                <p key={idx} className="text-sm">
+                <p key={idx} className="text-xs">
                   {idx > 0 ? `- ${item}` : item}
                 </p>
               ));

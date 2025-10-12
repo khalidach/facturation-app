@@ -54,18 +54,39 @@ app.post("/api/factures", (req, res) => {
     tva,
     total,
     notes,
+    facture_number: manualFactureNumber,
   } = req.body;
+
   try {
-    // Get the latest facture number for the given type
-    const lastFactureStmt = db.prepare(
-      "SELECT MAX(facture_number_int) as maxNum FROM factures WHERE type = ?"
-    );
-    const lastFacture = lastFactureStmt.get(type);
-    const newNum = (lastFacture.maxNum || 0) + 1;
-    const year = new Date(date).getFullYear().toString().slice(-2);
-    const facture_number = `${type.toUpperCase()}-${year}-${String(
-      newNum
-    ).padStart(4, "0")}`;
+    let facture_number;
+    let newNum = null;
+
+    if (manualFactureNumber && manualFactureNumber.trim() !== "") {
+      facture_number = manualFactureNumber.trim();
+
+      // Check for uniqueness before attempting to insert
+      const existingStmt = db.prepare(
+        "SELECT id FROM factures WHERE facture_number = ?"
+      );
+      const existingFacture = existingStmt.get(facture_number);
+      if (existingFacture) {
+        return res
+          .status(400)
+          .json({ error: "Document number already exists." });
+      }
+    } else {
+      // Get the latest facture number for the given type for auto-increment
+      const lastFactureStmt = db.prepare(
+        "SELECT MAX(facture_number_int) as maxNum FROM factures WHERE type = ?"
+      );
+      const lastFacture = lastFactureStmt.get(type);
+      newNum = (lastFacture.maxNum || 0) + 1;
+      const year = new Date(date).getFullYear().toString().slice(-2);
+      facture_number = `${type.toUpperCase()}-${year}-${String(newNum).padStart(
+        4,
+        "0"
+      )}`;
+    }
 
     const stmt = db.prepare(
       "INSERT INTO factures (facture_number, facture_number_int, clientName, clientAddress, clientICE, date, items, type, showMargin, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -90,6 +111,9 @@ app.post("/api/factures", (req, res) => {
       .status(201)
       .json({ id: info.lastInsertRowid, ...req.body, facture_number });
   } catch (error) {
+    if (error.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      return res.status(400).json({ error: "Document number already exists." });
+    }
     res.status(500).json({ error: error.message });
   }
 });
@@ -110,6 +134,7 @@ app.put("/api/factures/:id", (req, res) => {
     tva,
     total,
     notes,
+    facture_number, // Exclude from update
   } = req.body;
   try {
     const stmt = db.prepare(

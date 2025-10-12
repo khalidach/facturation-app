@@ -22,6 +22,7 @@ export default function FactureForm({
   const [items, setItems] = useState([emptyItem]);
   const [notes, setNotes] = useState("");
   const [showMargin, setShowMargin] = useState(showMarginOnNew);
+  const [factureNumber, setFactureNumber] = useState("");
 
   useEffect(() => {
     if (existingFacture) {
@@ -31,6 +32,7 @@ export default function FactureForm({
       setClientICE(existingFacture.clientICE || "");
       setDate(new Date(existingFacture.date).toISOString().split("T")[0]);
       setShowMargin(existingFacture.showMargin ?? true);
+      setFactureNumber(existingFacture.facture_number || "");
 
       let parsedItems = [emptyItem];
       if (existingFacture.items) {
@@ -62,6 +64,7 @@ export default function FactureForm({
       setItems([emptyItem]);
       setNotes("");
       setShowMargin(showMarginOnNew);
+      setFactureNumber("");
     }
   }, [existingFacture, showMarginOnNew]);
 
@@ -122,6 +125,7 @@ export default function FactureForm({
     }));
 
     onSave({
+      facture_number: factureNumber,
       clientName,
       clientAddress,
       clientICE,
@@ -180,6 +184,19 @@ export default function FactureForm({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Document Number
+          </label>
+          <input
+            type="text"
+            value={factureNumber}
+            onChange={(e) => setFactureNumber(e.target.value)}
+            placeholder="Auto-generated if left empty"
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-100"
+            disabled={!!existingFacture}
+          />
+        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
             Document Type
