@@ -59,10 +59,10 @@ export default function FacturePDF({ facture }) {
             {facture.clientICE && <p>ICE: {facture.clientICE}</p>}
           </div>
         )}
-        <table className="w-full mt-16 text-xs border-collapse">
+        <table className="w-full mt-56 text-xs border-collapse table-fixed">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2 text-left font-semibold border">
+              <th className="p-2 text-left font-semibold border w-[30%]">
                 DESIGNATION
               </th>
               <th className="p-2 text-center font-semibold border">QU</th>
@@ -82,7 +82,7 @@ export default function FacturePDF({ facture }) {
           <tbody>
             {parsedItems.map((item, index) => (
               <tr key={index}>
-                <td className="p-2 border">{item.description}</td>
+                <td className="p-2 border break-words">{item.description}</td>
                 <td className="p-2 text-center border">{item.quantity}</td>
                 <td className="p-2 text-right border">
                   {(Number(item.prixUnitaire) || 0).toLocaleString(undefined, {
