@@ -4,11 +4,14 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: "./", // Add this line
+  base: "./", // This is important for the build to work correctly with Electron
   plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  server: {
+    port: 5174, // Explicitly set the port
   },
 });

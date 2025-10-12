@@ -2,6 +2,9 @@ const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const server = require("./backend/server");
 
+// Determine if we are in development mode
+const isDev = process.env.NODE_ENV !== "production";
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 1200,
@@ -13,14 +16,12 @@ function createWindow() {
     },
   });
 
-  // Load the React frontend
-  const startUrl =
-    process.env.ELECTRON_START_URL ||
-    `file://${path.join(__dirname, "frontend/dist/index.html")}`;
-  mainWindow.loadURL(startUrl);
+  // Load from Vite dev server in development, or from the built file in production
+  const startUrl = isDev
+    ? "http://localhost:5174"
+    : `file://${path.join(__dirname, "frontend/dist/index.html")}`;
 
-  // Open the DevTools.
-  // mainWindow.webContents.openDevTools();
+  mainWindow.loadURL(startUrl);
 }
 
 app.whenReady().then(() => {
