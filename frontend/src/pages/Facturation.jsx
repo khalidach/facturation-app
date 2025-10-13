@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Download, Edit2, Trash2, FileText } from "lucide-react";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import { Plus, Download, Edit2, Trash2, FileText, Loader } from "lucide-react";
 import Modal from "@/components/Modal.jsx";
 import ConfirmationModal from "@/components/modal/ConfirmationModal.jsx";
 import FactureForm from "@/components/facturation/FactureForm.jsx";
-import FacturePDF from "@/components/facturation/FacturePDF.jsx";
+import FactureReactPDF from "@/components/facturation/FactureReactPDF.jsx";
 import { toast } from "react-hot-toast";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 import PaginationControls from "@/components/PaginationControls.jsx";
 
 // API helper to handle responses and errors
@@ -21,7 +20,6 @@ const handleApiResponse = async (response) => {
   return response.json();
 };
 
-// Mock API functions - replace with actual API calls to your backend
 const api = {
   getFactures: (page = 1, limit = 10) =>
     fetch(
@@ -43,12 +41,56 @@ const api = {
     fetch(`http://localhost:3001/api/factures/${id}`, {
       method: "DELETE",
     }).then((res) => {
-      if (!res.ok) {
-        throw new Error("Failed to delete");
-      }
-      // DELETE might not return a body, so we don't call .json()
-      return;
+      if (!res.ok) throw new Error("Failed to delete");
     }),
+  getSettings: () =>
+    fetch("http://localhost:3001/api/settings").then(handleApiResponse),
+  getTheme: () =>
+    fetch("http://localhost:3001/api/theme").then(handleApiResponse),
+};
+
+const DownloadPDF = ({ facture }) => {
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: api.getSettings,
+  });
+  const { data: theme } = useQuery({
+    queryKey: ["theme"],
+    queryFn: api.getTheme,
+  });
+
+  if (!settings || !theme) {
+    return (
+      <button className="p-2 text-gray-400" disabled>
+        <Loader className="w-4 h-4 animate-spin" />
+      </button>
+    );
+  }
+
+  return (
+    <PDFDownloadLink
+      document={
+        <FactureReactPDF
+          facture={facture}
+          settings={settings}
+          themeStyles={theme.styles || {}}
+        />
+      }
+      fileName={`${facture.type}_${facture.facture_number}.pdf`}
+    >
+      {({ loading }) =>
+        loading ? (
+          <button className="p-2 text-gray-400" disabled>
+            <Loader className="w-4 h-4 animate-spin" />
+          </button>
+        ) : (
+          <button className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg">
+            <Download className="w-4 h-4" />
+          </button>
+        )
+      }
+    </PDFDownloadLink>
+  );
 };
 
 export default function Facturation() {
@@ -56,7 +98,6 @@ export default function Facturation() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingFacture, setEditingFacture] = useState(null);
   const [factureToDelete, setFactureToDelete] = useState(null);
-  const [factureToPreview, setFactureToPreview] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const facturesPerPage = 10;
 
@@ -105,50 +146,6 @@ export default function Facturation() {
     } else {
       createFacture(data);
     }
-  };
-
-  useEffect(() => {
-    if (factureToPreview) {
-      const generatePdf = async () => {
-        // A short delay to ensure all content (like images) is loaded
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        const input = document.getElementById("pdf-preview");
-        if (input) {
-          try {
-            toast.loading("Generating PDF...", { id: "pdf-toast" });
-            const canvas = await html2canvas(input, { scale: 2 });
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF("p", "mm", "a4");
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-            pdf.save(
-              `${factureToPreview.type}_${factureToPreview.clientName.replace(
-                /\s/g,
-                "_"
-              )}.pdf`
-            );
-            toast.success("PDF Downloaded!", { id: "pdf-toast" });
-          } catch (error) {
-            console.error("Failed to generate PDF:", error);
-            toast.error("Failed to generate PDF.", { id: "pdf-toast" });
-          } finally {
-            // Reset the state to remove the preview component from the DOM
-            setFactureToPreview(null);
-          }
-        } else {
-          toast.error("PDF preview element not found.");
-          setFactureToPreview(null);
-        }
-      };
-
-      generatePdf();
-    }
-  }, [factureToPreview]);
-
-  const handleDownloadPDF = (facture) => {
-    setFactureToPreview(facture);
   };
 
   return (
@@ -230,12 +227,7 @@ export default function Facturation() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleDownloadPDF(facture)}
-                        className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
+                      <DownloadPDF facture={facture} />
                       <button
                         onClick={() => {
                           setEditingFacture(facture);
@@ -292,14 +284,6 @@ export default function Facturation() {
         title="Delete Document"
         message="Are you sure you want to delete this document?"
       />
-
-      {factureToPreview && (
-        <div style={{ position: "fixed", left: "-9999px", top: "-9999px" }}>
-          <div id="pdf-preview">
-            <FacturePDF facture={factureToPreview} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
