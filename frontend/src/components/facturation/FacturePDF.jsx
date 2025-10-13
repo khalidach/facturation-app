@@ -122,7 +122,10 @@ export default function FacturePDF({ facture, themeStyles }) {
               )}
             </div>
           )}
-          <table style={getStyle(styles, "body.table.container")}>
+          <table
+            className="table-container"
+            style={getStyle(styles, "body.table.container")}
+          >
             <thead>
               <tr style={getStyle(styles, "body.table.row")}>
                 <th style={getStyle(styles, "body.table.header")}>
@@ -288,7 +291,10 @@ export default function FacturePDF({ facture, themeStyles }) {
           </div>
         </main>
       </div>
-      <footer style={getStyle(styles, "footer.container")}>
+      <footer
+        className="footer-container"
+        style={getStyle(styles, "footer.container")}
+      >
         <div className="flex gap-2 justify-center flex-wrap">
           {[
             `Sté. ${settings?.agencyName || ""} ${settings?.typeSociete || ""}`,
