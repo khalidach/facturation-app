@@ -60,8 +60,18 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
+const dropThemeTable = `DROP TABLE IF EXISTS theme;`;
+
+const createThemeTable = `
+CREATE TABLE IF NOT EXISTS theme (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    styles TEXT
+);
+`;
+
 db.exec(createFacturesTable);
 db.exec(createSettingsTable);
+db.exec(createThemeTable);
 
 // --- Schema Migration ---
 // Check if the 'factures' table exists before trying to alter it.

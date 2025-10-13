@@ -215,4 +215,39 @@ app.post("/api/settings", (req, res) => {
   }
 });
 
+// --- Theme API ---
+
+// Get theme
+app.get("/api/theme", (req, res) => {
+  try {
+    const row = db.prepare("SELECT styles FROM theme WHERE id = 1").get();
+    if (row && row.styles) {
+      res.json({ styles: JSON.parse(row.styles) });
+    } else {
+      res.json({ styles: {} }); // Return empty object if no theme is saved yet
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update theme
+app.post("/api/theme", (req, res) => {
+  console.log("Received request to save theme."); // Added for debugging
+  const { styles } = req.body;
+  if (!styles) {
+    return res.status(400).json({ error: "Styles data is missing." });
+  }
+  try {
+    const stmt = db.prepare(
+      "INSERT OR REPLACE INTO theme (id, styles) VALUES (1, ?)"
+    );
+    stmt.run(JSON.stringify(styles));
+    res.status(200).json({ message: "Theme updated successfully" });
+  } catch (error) {
+    console.error("Failed to save theme:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = app;

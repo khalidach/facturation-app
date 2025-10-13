@@ -5,13 +5,36 @@ import { numberToWordsFr } from "@/services/numberToWords.js";
 const api = {
   getSettings: () =>
     fetch("http://localhost:3001/api/settings").then((res) => res.json()),
+  getTheme: () =>
+    fetch("http://localhost:3001/api/theme").then((res) => res.json()),
 };
 
-export default function FacturePDF({ facture }) {
+// Helper to get nested style object
+const getStyle = (styles, path) => {
+  try {
+    return path.split(".").reduce((acc, key) => acc && acc[key], styles) || {};
+  } catch (e) {
+    return {};
+  }
+};
+
+export default function FacturePDF({ facture, themeStyles }) {
   const { data: settings } = useQuery({
     queryKey: ["settings"],
     queryFn: api.getSettings,
   });
+
+  const { data: savedTheme } = useQuery({
+    queryKey: ["theme"],
+    queryFn: api.getTheme,
+    enabled: !themeStyles, // Only fetch if no theme is passed via props
+  });
+
+  const styles = themeStyles || savedTheme?.styles || {};
+
+  const headerStyles = styles.header || {};
+  const bodyStyles = styles.body || {};
+  const footerStyles = styles.footer || {};
 
   const totalInWords = numberToWordsFr(facture.total);
   const showMargin = facture.showMargin ?? true;
@@ -23,92 +46,118 @@ export default function FacturePDF({ facture }) {
   return (
     <div
       className="bg-white p-10 font-sans text-xs flex flex-col"
-      style={{ width: "210mm", minHeight: "297mm" }}
+      style={{
+        width: "210mm",
+        minHeight: "297mm",
+        ...getStyle(styles, "container"),
+      }}
     >
+      <style>
+        {headerStyles.customCss}
+        {bodyStyles.customCss}
+        {footerStyles.customCss}
+      </style>
       <div className="flex-grow">
-        <div className="flex justify-between items-center mb-8">
-          {/* Left Side: Logo and Agency Name - Centered vertically */}
-          <div className="flex items-center gap-4 flex-1">
-            {settings?.logo && (
-              <img
-                src={settings.logo}
-                alt="Agency Logo"
-                className="h-20 w-auto block"
-              />
-            )}
-            <h1 className="text-xl font-bold">
-              {settings?.agencyName || "Your Agency"}
-            </h1>
+        <header
+          className="header-container"
+          style={getStyle(styles, "header.container")}
+        >
+          <div className="flex justify-between items-center mb-8">
+            {/* Left Side: Logo and Agency Name */}
+            <div className="flex items-center gap-4">
+              {settings?.logo && (
+                <img
+                  src={settings.logo}
+                  alt="Agency Logo"
+                  className="block"
+                  style={getStyle(styles, "header.logo")}
+                />
+              )}
+              <h1 style={getStyle(styles, "header.agencyName")}>
+                {settings?.agencyName || "Your Agency"}
+              </h1>
+            </div>
+            {/* Right Side: Invoice Details */}
+            <div className="flex flex-col items-end justify-center flex-1 text-right">
+              <h2
+                className="uppercase"
+                style={getStyle(styles, "header.factureType")}
+              >
+                {facture.type}
+              </h2>
+              <p
+                className="mt-1"
+                style={getStyle(styles, "header.factureNumber")}
+              >
+                N°: {facture.facture_number}
+              </p>
+              <p style={getStyle(styles, "header.date")}>
+                Date: {new Date(facture.date).toLocaleDateString("en-GB")}
+              </p>
+              {settings?.ice && (
+                <p style={getStyle(styles, "header.ice")}>
+                  ICE: {settings.ice}
+                </p>
+              )}
+            </div>
           </div>
-          {/* Right Side: Invoice Details - Centered vertically, text aligned right */}
-          <div className="flex flex-col items-end justify-center flex-1 text-right">
-            <h2 className="text-3xl font-bold uppercase text-gray-700">
-              {facture.type}
-            </h2>
-            <p className="text-sm mt-1">N°: {facture.facture_number}</p>
-            <p className="text-sm">
-              Date: {new Date(facture.date).toLocaleDateString("en-GB")}
-            </p>
-            {settings?.ice && <p className="text-sm">ICE: {settings.ice}</p>}
-          </div>
-        </div>
-        <div className="mt-32">
+        </header>
+
+        <main
+          className="body-container"
+          style={getStyle(styles, "body.container")}
+        >
           {facture?.clientName && (
-            <div className="mt-8 border-t mb-6 border-b py-4">
-              <p className="text-lg font-bold">{facture.clientName}</p>
-              <p>{facture.clientAddress}</p>
+            <div style={getStyle(styles, "body.clientInfo.container")}>
+              <p style={getStyle(styles, "body.clientInfo.clientName")}>
+                {facture.clientName}
+              </p>
+              <p style={getStyle(styles, "body.clientInfo.clientAddress")}>
+                {facture.clientAddress}
+              </p>
               {facture.clientICE && (
-                <p className="text-lg font-bold">ICE: {facture.clientICE}</p>
+                <p style={getStyle(styles, "body.clientInfo.clientICE")}>
+                  ICE: {facture.clientICE}
+                </p>
               )}
             </div>
           )}
-          <table className="w-full text-xs border-collapse table-fixed">
-            <thead className="bg-gray-100">
-              <tr>
-                <th
-                  className="p-2 text-left font-semibold border"
-                  style={{
-                    width: showMargin
-                      ? `${(5 / 15) * 100}%`
-                      : `${(5 / 12) * 100}%`,
-                  }}
-                >
+          <table style={getStyle(styles, "body.table.container")}>
+            <thead>
+              <tr style={getStyle(styles, "body.table.row")}>
+                <th style={getStyle(styles, "body.table.header")}>
                   DESIGNATION
                 </th>
                 <th
-                  className="p-2 text-center font-semibold border"
                   style={{
-                    width: showMargin
-                      ? `${(1 / 15) * 100}%`
-                      : `${(1 / 12) * 100}%`,
+                    ...getStyle(styles, "body.table.header"),
+                    textAlign: "center",
                   }}
                 >
                   QU
                 </th>
                 <th
-                  className="p-2 text-right font-semibold border"
                   style={{
-                    width: showMargin
-                      ? `${(3 / 15) * 100}%`
-                      : `${(3 / 12) * 100}%`,
+                    ...getStyle(styles, "body.table.header"),
+                    textAlign: "right",
                   }}
                 >
                   PRIX UNITAIRE
                 </th>
                 {showMargin && (
                   <th
-                    className="p-2 text-right font-semibold border"
-                    style={{ width: `${(3 / 15) * 100}%` }}
+                    style={{
+                      ...getStyle(styles, "body.table.header"),
+                      textAlign: "right",
+                    }}
                   >
                     FRAIS. SCE UNITAIRE
                   </th>
                 )}
                 <th
-                  className="p-2 text-right font-semibold border"
                   style={{
-                    width: showMargin
-                      ? `${(3 / 15) * 100}%`
-                      : `${(3 / 12) * 100}%`,
+                    ...getStyle(styles, "body.table.header"),
+                    textAlign: "right",
                   }}
                 >
                   MONTANT TOTAL
@@ -117,32 +166,55 @@ export default function FacturePDF({ facture }) {
             </thead>
             <tbody>
               {parsedItems.map((item, index) => (
-                <tr key={index}>
+                <tr key={index} style={getStyle(styles, "body.table.row")}>
                   <td
-                    className="p-2 border break-words"
-                    style={{ whiteSpace: "pre-wrap" }}
+                    style={{
+                      ...getStyle(styles, "body.table.cell"),
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
                   >
                     {item.description}
                   </td>
-                  <td className="p-2 text-center border">{item.quantity}</td>
-                  <td className="p-2 text-right border">
+                  <td
+                    style={{
+                      ...getStyle(styles, "body.table.cell"),
+                      textAlign: "center",
+                    }}
+                  >
+                    {item.quantity}
+                  </td>
+                  <td
+                    style={{
+                      ...getStyle(styles, "body.table.cell"),
+                      textAlign: "right",
+                    }}
+                  >
                     {(Number(item.prixUnitaire) || 0).toLocaleString(
                       undefined,
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      }
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
                     )}
                   </td>
                   {showMargin && (
-                    <td className="p-2 text-right border">
+                    <td
+                      style={{
+                        ...getStyle(styles, "body.table.cell"),
+                        textAlign: "right",
+                      }}
+                    >
                       {(Number(item.fraisServiceUnitaire) || 0).toLocaleString(
                         undefined,
                         { minimumFractionDigits: 2, maximumFractionDigits: 2 }
                       )}
                     </td>
                   )}
-                  <td className="p-2 text-right border font-semibold">
+                  <td
+                    style={{
+                      ...getStyle(styles, "body.table.cell"),
+                      textAlign: "right",
+                      fontWeight: "bold",
+                    }}
+                  >
                     {(Number(item.total) || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -152,106 +224,95 @@ export default function FacturePDF({ facture }) {
               ))}
             </tbody>
           </table>
-          <div className="flex justify-end mt-5">
-            <div className="w-1/2 space-y-1 text-xs">
-              {showMargin && (
-                <>
-                  <div className="flex justify-between p-2">
-                    <span className="font-medium text-gray-600">
-                      Prix Total H. Frais de SCE
-                    </span>
-                    <span className="font-semibold text-gray-800">
-                      {Number(facture.prixTotalHorsFrais).toLocaleString(
-                        undefined,
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
-                      )}{" "}
-                      MAD
-                    </span>
-                  </div>
-                  <div className="flex justify-between p-2">
-                    <span className="font-medium text-gray-600">
-                      Frais de Service Hors TVA
-                    </span>
-                    <span className="font-semibold text-gray-800">
-                      {Number(facture.totalFraisServiceHT).toLocaleString(
-                        undefined,
-                        {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }
-                      )}{" "}
-                      MAD
-                    </span>
-                  </div>
-                  <div className="flex justify-between p-2">
-                    <span className="font-medium text-gray-600">TVA 20%</span>
-                    <span className="font-semibold text-gray-800">
-                      {Number(facture.tva).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}{" "}
-                      MAD
-                    </span>
-                  </div>
-                </>
-              )}
-              <div className="flex justify-between items-center font-bold text-sm bg-gray-100 p-2 rounded mt-1">
-                <span>
-                  Total {facture.type === "devis" ? "Devis" : "Facture"}
-                </span>
-                <span>
-                  {Number(facture.total).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}{" "}
-                  MAD
-                </span>
-              </div>
+          <div style={getStyle(styles, "body.totals.container")}>
+            {showMargin && (
+              <>
+                <div style={getStyle(styles, "body.totals.row")}>
+                  <span style={getStyle(styles, "body.totals.label")}>
+                    Prix Total H. Frais de SCE
+                  </span>
+                  <span style={getStyle(styles, "body.totals.value")}>
+                    {Number(facture.prixTotalHorsFrais).toLocaleString(
+                      undefined,
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                    )}{" "}
+                    MAD
+                  </span>
+                </div>
+                <div style={getStyle(styles, "body.totals.row")}>
+                  <span style={getStyle(styles, "body.totals.label")}>
+                    Frais de Service Hors TVA
+                  </span>
+                  <span style={getStyle(styles, "body.totals.value")}>
+                    {Number(facture.totalFraisServiceHT).toLocaleString(
+                      undefined,
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                    )}{" "}
+                    MAD
+                  </span>
+                </div>
+                <div style={getStyle(styles, "body.totals.row")}>
+                  <span style={getStyle(styles, "body.totals.label")}>
+                    TVA 20%
+                  </span>
+                  <span style={getStyle(styles, "body.totals.value")}>
+                    {Number(facture.tva).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    MAD
+                  </span>
+                </div>
+              </>
+            )}
+            <div style={getStyle(styles, "body.totals.totalRow")}>
+              <span style={getStyle(styles, "body.totals.label")}>
+                Total {facture.type === "devis" ? "Devis" : "Facture"}
+              </span>
+              <span style={getStyle(styles, "body.totals.value")}>
+                {Number(facture.total).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                MAD
+              </span>
             </div>
           </div>
-          <div className="mt-8 text-xs">
-            <p>Arrêté la présente facture à la somme de :</p>
-            <p className="font-bold capitalize">{totalInWords}</p>
+          <div style={getStyle(styles, "body.totalInWords.container")}>
+            <p style={getStyle(styles, "body.totalInWords.label")}>
+              Arrêté la présente facture à la somme de :
+            </p>
+            <p style={getStyle(styles, "body.totalInWords.value")}>
+              {totalInWords}
+            </p>
           </div>
-        </div>
+        </main>
       </div>
-      <div className="border-t pt-5">
+      <footer style={getStyle(styles, "footer.container")}>
         <div className="flex gap-2 justify-center flex-wrap">
-          {/* Contact info */}
-          <div className="flex gap-2 flex-wrap justify-center w-full">
-            {(() => {
-              const numbers = [];
-              if (settings?.agencyName && settings?.typeSociete)
-                numbers.push(
-                  `Sté. ${settings.agencyName} ${settings.typeSociete}`
-                );
-              if (settings?.capital)
-                numbers.push(`Capital: ${settings.capital} Dhs`);
-              if (settings?.address)
-                numbers.push(`Siège Sociol: ${settings.address}`);
-              if (settings?.phone) numbers.push(`Fix: ${settings.phone}`);
-              if (settings?.email) numbers.push(`Email: ${settings.email}`);
-              if (settings?.ice) numbers.push(`ICE: ${settings.ice}`);
-              if (settings?.if) numbers.push(`IF: ${settings.if}`);
-              if (settings?.rc) numbers.push(`RC: ${settings.rc}`);
-              if (settings?.patente)
-                numbers.push(`Patente: ${settings.patente}`);
-              if (settings?.cnss) numbers.push(`CNSS: ${settings.cnss}`);
-              if (settings?.bankName && settings?.rib)
-                numbers.push(`Bank ${settings.bankName}: ${settings.rib}`);
-
-              return numbers.map((item, idx) => (
-                <p key={idx} className="text-xs">
-                  {idx > 0 ? `- ${item}` : item}
-                </p>
-              ));
-            })()}
-          </div>
+          {[
+            `Sté. ${settings?.agencyName || ""} ${settings?.typeSociete || ""}`,
+            settings?.capital && `Capital: ${settings.capital} Dhs`,
+            settings?.address && `Siège Social: ${settings.address}`,
+            settings?.phone && `Fix: ${settings.phone}`,
+            settings?.email && `Email: ${settings.email}`,
+            settings?.ice && `ICE: ${settings.ice}`,
+            settings?.if && `IF: ${settings.if}`,
+            settings?.rc && `RC: ${settings.rc}`,
+            settings?.patente && `Patente: ${settings.patente}`,
+            settings?.cnss && `CNSS: ${settings.cnss}`,
+            settings?.bankName &&
+              settings?.rib &&
+              `Bank ${settings.bankName}: ${settings.rib}`,
+          ]
+            .filter(Boolean)
+            .map((item, idx) => (
+              <p key={idx} style={getStyle(styles, "footer.text")}>
+                {idx > 0 ? `- ${item}` : item}
+              </p>
+            ))}
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
