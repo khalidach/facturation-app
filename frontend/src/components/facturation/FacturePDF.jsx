@@ -128,13 +128,19 @@ export default function FacturePDF({ facture, themeStyles }) {
           >
             <thead>
               <tr style={getStyle(styles, "body.table.row")}>
-                <th style={getStyle(styles, "body.table.header")}>
+                <th
+                  style={{
+                    ...getStyle(styles, "body.table.header"),
+                    verticalAlign: "middle",
+                  }}
+                >
                   DESIGNATION
                 </th>
                 <th
                   style={{
                     ...getStyle(styles, "body.table.header"),
                     textAlign: "center",
+                    verticalAlign: "middle",
                   }}
                 >
                   QU
@@ -143,6 +149,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                   style={{
                     ...getStyle(styles, "body.table.header"),
                     textAlign: "right",
+                    verticalAlign: "middle",
                   }}
                 >
                   PRIX UNITAIRE
@@ -152,6 +159,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                     style={{
                       ...getStyle(styles, "body.table.header"),
                       textAlign: "right",
+                      verticalAlign: "middle",
                     }}
                   >
                     FRAIS. SCE UNITAIRE
@@ -161,6 +169,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                   style={{
                     ...getStyle(styles, "body.table.header"),
                     textAlign: "right",
+                    verticalAlign: "middle",
                   }}
                 >
                   MONTANT TOTAL
