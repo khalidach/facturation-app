@@ -22,10 +22,17 @@ const handleApiResponse = async (response) => {
 };
 
 const api = {
-  getFactures: (page = 1, limit = 10) =>
-    fetch(
-      `http://localhost:3001/api/factures?page=${page}&limit=${limit}`
-    ).then(handleApiResponse),
+  getFactures: (page = 1, limit = 10, search = "", sortBy = "newest") => {
+    const params = new URLSearchParams({
+      page,
+      limit,
+      search,
+      sortBy,
+    });
+    return fetch(
+      `http://localhost:3001/api/factures?${params.toString()}`
+    ).then(handleApiResponse);
+  },
   createFacture: (data) =>
     fetch("http://localhost:3001/api/factures", {
       method: "POST",
@@ -56,11 +63,37 @@ export default function Facturation() {
   const [factureToDelete, setFactureToDelete] = useState(null);
   const [factureToPreview, setFactureToPreview] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   const facturesPerPage = 10;
 
+  // Debounce search term to avoid excessive API calls
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1); // Reset to first page on new search
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm]);
+
+  // Reset to first page when sorting changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortBy]);
+
   const { data: facturesResponse, isLoading } = useQuery({
-    queryKey: ["factures", currentPage],
-    queryFn: () => api.getFactures(currentPage, facturesPerPage),
+    queryKey: ["factures", currentPage, debouncedSearchTerm, sortBy],
+    queryFn: () =>
+      api.getFactures(
+        currentPage,
+        facturesPerPage,
+        debouncedSearchTerm,
+        sortBy
+      ),
     placeholderData: (prev) => prev,
   });
 
@@ -170,6 +203,29 @@ export default function Facturation() {
           </button>
         </div>
 
+        {/* Search and Filter Controls */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="relative w-full md:max-w-md">
+            <input
+              type="text"
+              placeholder="Search by N°, Client, or Total..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="w-full md:w-auto">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="newest">Sort by Newest</option>
+              <option value="oldest">Sort by Oldest</option>
+            </select>
+          </div>
+        </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
@@ -198,10 +254,10 @@ export default function Facturation() {
                   <td colSpan={6} className="text-center p-12">
                     <FileText className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                      No documents
+                      No documents found
                     </h3>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      Create your first document to get started.
+                      Try adjusting your search or create a new document.
                     </p>
                   </td>
                 </tr>
