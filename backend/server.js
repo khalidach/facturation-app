@@ -11,20 +11,41 @@ app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 
 // --- Factures API ---
 
-// Get all factures with pagination
+// Get all factures with pagination, search, and sorting
 app.get("/api/factures", (req, res) => {
   const page = parseInt(req.query.page || 1, 10);
   const limit = parseInt(req.query.limit || 10, 10);
   const offset = (page - 1) * limit;
+  const searchTerm = req.query.search || "";
+  const sortBy = req.query.sortBy || "newest"; // Default to newest
+
+  let whereClause = "";
+  const params = [];
+  const countParams = [];
+
+  if (searchTerm) {
+    whereClause = `
+      WHERE clientName LIKE ? 
+      OR facture_number LIKE ? 
+      OR CAST(total AS TEXT) LIKE ?
+    `;
+    const likeTerm = `%${searchTerm}%`;
+    params.push(likeTerm, likeTerm, likeTerm);
+    countParams.push(likeTerm, likeTerm, likeTerm);
+  }
+
+  const orderByClause =
+    sortBy === "oldest" ? "ORDER BY createdAt ASC" : "ORDER BY createdAt DESC";
 
   try {
-    const countStmt = db.prepare("SELECT COUNT(*) as totalCount FROM factures");
-    const { totalCount } = countStmt.get();
+    const countQuery = `SELECT COUNT(*) as totalCount FROM factures ${whereClause}`;
+    const countStmt = db.prepare(countQuery);
+    const { totalCount } = countStmt.get(...countParams);
 
-    const stmt = db.prepare(
-      "SELECT * FROM factures ORDER BY date DESC LIMIT ? OFFSET ?"
-    );
-    const factures = stmt.all(limit, offset);
+    const dataQuery = `SELECT * FROM factures ${whereClause} ${orderByClause} LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    const stmt = db.prepare(dataQuery);
+    const factures = stmt.all(...params);
 
     res.json({
       data: factures,
