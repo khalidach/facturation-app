@@ -1,16 +1,67 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
-import Facturation from "@/pages/Facturation.jsx";
-import Settings from "@/pages/Settings.jsx";
-import Theme from "@/pages/Theme.jsx";
-import { Settings as SettingsIcon, FileText, Palette } from "lucide-react";
+import Facturation from "./pages/Facturation.jsx";
+import Settings from "./pages/Settings.jsx";
+import Theme from "./pages/Theme.jsx";
+import Verification from "./pages/Verification.jsx"; // Import the new page
+import {
+  Settings as SettingsIcon,
+  FileText,
+  Palette,
+  // ShieldCheck icon is no longer needed for the nav
+} from "lucide-react";
 
 const queryClient = new QueryClient();
+const STORAGE_KEY = "facturation-app-license"; // Key to check for verification
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("facturation");
 
+  // --- New Verification State ---
+  const [isVerified, setIsVerified] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Loading state for check
+
+  // --- Check for existing license on load ---
+  useEffect(() => {
+    try {
+      const storedLicense = localStorage.getItem(STORAGE_KEY);
+      if (storedLicense) {
+        const { valid } = JSON.parse(storedLicense);
+        if (valid) {
+          setIsVerified(true);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to parse stored license", error);
+      setIsVerified(false);
+    }
+    setIsLoading(false);
+  }, []);
+
+  // --- Show loading screen ---
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  // --- Show Verification Page if not verified ---
+  if (!isVerified) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        {/* Render only the Verification component.
+          We pass it a function to call on successful verification.
+        */}
+        <Verification onSuccess={() => setIsVerified(true)} />
+        <Toaster position="bottom-right" />
+      </QueryClientProvider>
+    );
+  }
+
+  // --- Show Main App if verified ---
   return (
     <QueryClientProvider client={queryClient}>
       {activeTab === "theme" ? (
@@ -55,11 +106,13 @@ export default function App() {
                 <Palette className="w-5 h-5 mr-3" />
                 Theme
               </button>
+              {/* Verification button is removed from nav, as it's now a gate */}
             </nav>
           </aside>
           <main className="flex-1 p-8 overflow-y-auto">
             {activeTab === "facturation" && <Facturation />}
             {activeTab === "settings" && <Settings />}
+            {/* Verification page is no longer rendered here */}
           </main>
         </div>
       )}
