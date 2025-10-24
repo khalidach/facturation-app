@@ -28,7 +28,8 @@
     "electron": "^28.2.3",
     "electron-builder": "^24.9.1",
     "nodemon": "^3.1.10",
-    "wait-on": "^9.0.1"
+    "wait-on": "^9.0.1",
+    "node-machine-id": "^1.1.12"
   },
   "build": {
     "appId": "com.facturation.app",

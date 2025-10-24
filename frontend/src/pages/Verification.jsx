@@ -2,9 +2,12 @@ import React, { useState } from "react";
 import { ShieldCheck, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
 
+// The API endpoint for your Netlify function
 const VERIFICATION_API_URL = "https://verification-code.netlify.app/api/verify";
+
+// localStorage keys
 const STORAGE_KEY = "facturation-app-license";
-// We no longer need a separate key for the machine ID, as we get it from the hardware.
+const MACHINE_ID_KEY = "facturation-app-machine-id"; // Key to store our persistent ID
 
 // Accept 'onSuccess' prop from App.jsx
 export default function Verification({ onSuccess }) {
@@ -16,81 +19,60 @@ export default function Verification({ onSuccess }) {
     message: "",
   });
 
-  const getPersistentMachineId = () => {
-    // Check if the preload script (electronAPI) was successfully injected
-    if (
-      window.electronAPI &&
-      typeof window.electronAPI.getMachineId === "function"
-    ) {
-      return window.electronAPI.getMachineId();
-    }
-
-    // Fallback or error
-    console.warn(
-      "electronAPI is not available. Running in browser mode or preload failed."
-    );
-    // Return null to indicate failure
-    return null;
-  };
-
   const handleVerify = async () => {
     setIsLoading(true);
     setVerificationStatus({ checked: false, valid: false, message: "" });
 
-    // --- THIS IS THE FIX ---
-    // Get the persistent hardware ID from the preload script
-    const machineId = getPersistentMachineId();
-
-    // Check if we successfully got the machine ID
-    if (!machineId) {
-      const errorMsg =
-        "Could not retrieve machine identifier. Please restart the application.";
-      setVerificationStatus({
-        checked: true,
-        valid: false,
-        message: errorMsg,
-      });
-      toast.error(errorMsg);
-      setIsLoading(false);
-      return; // Stop the verification
-    }
-    // --- END OF FIX ---
-
     try {
+      // --- THIS IS THE FIX ---
+
+      // 1. Get or create a persistent Machine ID
+      let machineId = localStorage.getItem(MACHINE_ID_KEY);
+      if (!machineId) {
+        // If no ID exists, create one and store it.
+        // This ensures the same machine always uses the same ID.
+        machineId = crypto.randomUUID();
+        localStorage.setItem(MACHINE_ID_KEY, machineId);
+      }
+
+      // 2. Send BOTH licenseCode and machineId to the server
       const response = await fetch(VERIFICATION_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        // Send the license code AND the persistent hardware ID
-        body: JSON.stringify({ licenseCode, machineId }),
+        // The server expects both pieces of data
+        body: JSON.stringify({
+          licenseCode: licenseCode.trim(), // Send the code
+          machineId: machineId, // Send the persistent machine ID
+        }),
       });
+      // --- END OF FIX ---
 
       const data = await response.json();
 
-      // Check for 'success' (from our Netlify function)
+      // --- BUG FIX ---
+      // Our Netlify function returns `{ success: true }`, not `valid`.
+      // We must check for `data.success`.
       if (response.ok && data.success) {
         // SUCCESS
         setVerificationStatus({
           checked: true,
           valid: true,
-          message: data.message,
+          message: data.message, // Use the success message from server
         });
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({
-            code: licenseCode,
-            valid: true,
-            machineId: machineId,
-          }) // Save the machineId for good measure
+          JSON.stringify({ code: licenseCode, valid: true })
         );
-        toast.success("Application activated!");
+        toast.success(data.message || "Application activated!");
 
+        // Call the 'onSuccess' function passed from App.jsx
         if (onSuccess) {
           onSuccess();
         }
       } else {
-        // FAIL
+        // FAIL (e.g., 404, 403, or data.success === false)
         setVerificationStatus({
           checked: true,
           valid: false,
@@ -99,12 +81,15 @@ export default function Verification({ onSuccess }) {
         toast.error(data.message || "Invalid license code.");
       }
     } catch (error) {
-      // CATCH
+      // CATCH (e.g., server down, or the JSON parse error)
       console.error("Verification error:", error);
-      let errorMessage = "Could not connect to verification service.";
+      let errorMessage =
+        "Could not connect to verification service. Please check your internet connection.";
 
+      // Check if it was the JSON parse error
       if (error instanceof SyntaxError) {
-        errorMessage = "Received an invalid response from the server.";
+        errorMessage =
+          "Received an invalid (non-JSON) response from the server. Check server logs.";
       }
 
       setVerificationStatus({
@@ -117,9 +102,6 @@ export default function Verification({ onSuccess }) {
       setIsLoading(false);
     }
   };
-
-  // ... rest of your component (getStatusIcon, getStatusMessage, JSX) ...
-  // ... no changes needed below this line ...
 
   const getStatusIcon = () => {
     if (!verificationStatus.checked) {
