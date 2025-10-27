@@ -5,8 +5,6 @@ import { Save, Palette } from "lucide-react";
 import FacturePDF from "@/components/facturation/FacturePDF.jsx";
 import ThemeEditor from "@/components/theme/ThemeEditor.jsx";
 
-// API helper and 'api' object removed
-
 // Default styles structure
 const initialStyles = {
   header: {
@@ -130,7 +128,7 @@ export default function Theme() {
 
   const { data: themeData, isLoading } = useQuery({
     queryKey: ["theme"],
-    queryFn: window.electronAPI.getTheme, // Changed
+    queryFn: window.electronAPI.getTheme,
   });
 
   useEffect(() => {
@@ -164,7 +162,7 @@ export default function Theme() {
 
   const { mutate: updateTheme, isPending } = useMutation({
     mutationFn: (newStyles) =>
-      window.electronAPI.updateTheme({ styles: newStyles }), // Changed
+      window.electronAPI.updateTheme({ styles: newStyles }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["theme"] });
       toast.success("Theme saved successfully!");
@@ -211,11 +209,12 @@ export default function Theme() {
   };
 
   if (isLoading) {
-    return <div>Loading Theme...</div>;
+    return Nothing; // Return null or a minimal loader
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    // UPDATED: Changed 'h-screen' to 'h-full' to fit inside the <main> tag.
+    <div className="flex h-full overflow-hidden">
       {/* Left Panel: Editor */}
       <aside className="w-1/3 bg-white dark:bg-gray-800 p-6 overflow-y-auto shadow-lg">
         <div className="flex items-center justify-between mb-6">

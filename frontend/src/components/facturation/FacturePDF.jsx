@@ -119,7 +119,10 @@ export default function FacturePDF({ facture, themeStyles }) {
           )}
           <table
             className="table-container"
-            style={getStyle(styles, "body.table.container")}
+            style={{
+              ...getStyle(styles, "body.table.container"),
+              minHeight: "300px",
+            }}
           >
             <thead>
               <tr style={getStyle(styles, "body.table.row")}>
