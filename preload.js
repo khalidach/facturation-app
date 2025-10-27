@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   updateTheme: (data) => ipcRenderer.invoke("db:updateTheme", data),
 
   // License Verification
-  licenseVerify: (args) => ipcRenderer.invoke("license:verify", args),
+  // Simplified: The frontend only needs to send the license code.
+  // The main process will handle adding the machineId.
+  licenseVerify: (licenseCode) =>
+    ipcRenderer.invoke("license:verify", { licenseCode }),
 });

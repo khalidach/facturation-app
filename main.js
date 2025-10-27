@@ -1,6 +1,14 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const db = require("./backend/database"); // Import the database
+// Import the node-machine-id package
+const { machineIdSync } = require("node-machine-id");
+
+// --- NEW ---
+// Get the persistent, original hardware ID.
+// This ID will remain the same even if the user uninstalls and reinstalls the app.
+const persistentMachineId = machineIdSync({ original: true });
+// --- END NEW ---
 
 // Determine if we are in development mode
 const isDev = process.env.npm_lifecycle_event === "dev:electron";
@@ -266,8 +274,9 @@ ipcMain.handle("db:updateTheme", (event, data) => {
 
 // --- License Verification IPC Handler ---
 ipcMain.handle("license:verify", async (event, args) => {
-  const { licenseCode, machineId } = args;
-  // This URL is now hidden from the frontend bundle
+  // We no longer get machineId from the frontend.
+  // We only get licenseCode.
+  const { licenseCode } = args;
   const VERIFICATION_API_URL =
     "https://verification-code.netlify.app/api/verify";
 
@@ -279,24 +288,21 @@ ipcMain.handle("license:verify", async (event, args) => {
       },
       body: JSON.stringify({
         licenseCode: licenseCode,
-        machineId: machineId,
+        // We now send the *persistent* hardware ID
+        machineId: persistentMachineId,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      // Forward the error message from the verification server
       throw new Error(
         data.message || `Server responded with ${response.status}`
       );
     }
-
-    // Forward the successful response to the frontend
     return data;
   } catch (error) {
     console.error("License verification fetch failed:", error);
-    // Handle network errors or if response.json() fails
     if (error instanceof SyntaxError) {
       throw new Error("Invalid (non-JSON) response from license server.");
     }
