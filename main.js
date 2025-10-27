@@ -264,6 +264,48 @@ ipcMain.handle("db:updateTheme", (event, data) => {
   }
 });
 
+// --- License Verification IPC Handler ---
+ipcMain.handle("license:verify", async (event, args) => {
+  const { licenseCode, machineId } = args;
+  // This URL is now hidden from the frontend bundle
+  const VERIFICATION_API_URL =
+    "https://verification-code.netlify.app/api/verify";
+
+  try {
+    const response = await fetch(VERIFICATION_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        licenseCode: licenseCode,
+        machineId: machineId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Forward the error message from the verification server
+      throw new Error(
+        data.message || `Server responded with ${response.status}`
+      );
+    }
+
+    // Forward the successful response to the frontend
+    return data;
+  } catch (error) {
+    console.error("License verification fetch failed:", error);
+    // Handle network errors or if response.json() fails
+    if (error instanceof SyntaxError) {
+      throw new Error("Invalid (non-JSON) response from license server.");
+    }
+    throw new Error(
+      error.message || "Could not connect to verification service."
+    );
+  }
+});
+
 // --- App Lifecycle ---
 
 app.whenReady().then(() => {
@@ -277,5 +319,3 @@ app.whenReady().then(() => {
 app.on("window-all-closed", function () {
   if (process.platform !== "darwin") app.quit();
 });
-
-// NO MORE SERVER LISTEN

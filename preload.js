@@ -15,4 +15,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Theme
   getTheme: () => ipcRenderer.invoke("db:getTheme"),
   updateTheme: (data) => ipcRenderer.invoke("db:updateTheme", data),
+
+  // License Verification
+  licenseVerify: (args) => ipcRenderer.invoke("license:verify", args),
 });

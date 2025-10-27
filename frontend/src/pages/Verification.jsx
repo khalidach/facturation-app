@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import { ShieldCheck, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-// The API endpoint for your Netlify function
-const VERIFICATION_API_URL = "https://verification-code.netlify.app/api/verify";
+// The API endpoint URL is no longer needed here
 
 // localStorage keys
 const STORAGE_KEY = "facturation-app-license";
@@ -24,37 +23,23 @@ export default function Verification({ onSuccess }) {
     setVerificationStatus({ checked: false, valid: false, message: "" });
 
     try {
-      // --- THIS IS THE FIX ---
-
       // 1. Get or create a persistent Machine ID
       let machineId = localStorage.getItem(MACHINE_ID_KEY);
       if (!machineId) {
         // If no ID exists, create one and store it.
-        // This ensures the same machine always uses the same ID.
         machineId = crypto.randomUUID();
         localStorage.setItem(MACHINE_ID_KEY, machineId);
       }
 
-      // 2. Send BOTH licenseCode and machineId to the server
-      const response = await fetch(VERIFICATION_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        // The server expects both pieces of data
-        body: JSON.stringify({
-          licenseCode: licenseCode.trim(), // Send the code
-          machineId: machineId, // Send the persistent machine ID
-        }),
+      // 2. Call the main process via IPC instead of fetching directly
+      const data = await window.electronAPI.licenseVerify({
+        licenseCode: licenseCode.trim(),
+        machineId: machineId,
       });
-      // --- END OF FIX ---
 
-      const data = await response.json();
-
-      // --- BUG FIX ---
-      // Our Netlify function returns `{ success: true }`, not `valid`.
-      // We must check for `data.success`.
-      if (response.ok && data.success) {
+      // 3. Check the response from the main process
+      // (The main process forwards the server's response)
+      if (data.success) {
         // SUCCESS
         setVerificationStatus({
           checked: true,
@@ -72,7 +57,7 @@ export default function Verification({ onSuccess }) {
           onSuccess();
         }
       } else {
-        // FAIL (e.g., 404, 403, or data.success === false)
+        // FAIL (e.g., data.success === false from verification server)
         setVerificationStatus({
           checked: true,
           valid: false,
@@ -81,23 +66,14 @@ export default function Verification({ onSuccess }) {
         toast.error(data.message || "Invalid license code.");
       }
     } catch (error) {
-      // CATCH (e.g., server down, or the JSON parse error)
+      // CATCH (This now catches errors thrown from main.js)
       console.error("Verification error:", error);
-      let errorMessage =
-        "Could not connect to verification service. Please check your internet connection.";
-
-      // Check if it was the JSON parse error
-      if (error instanceof SyntaxError) {
-        errorMessage =
-          "Received an invalid (non-JSON) response from the server. Check server logs.";
-      }
-
       setVerificationStatus({
         checked: true,
         valid: false,
-        message: errorMessage,
+        message: error.message, // The error message now comes from main.js
       });
-      toast.error(errorMessage);
+      toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
