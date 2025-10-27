@@ -3,27 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { Save } from "lucide-react";
 
-// API helper to handle responses and errors
-const handleApiResponse = async (response) => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error || `Request failed: ${response.statusText}`
-    );
-  }
-  return response.json();
-};
-
-const api = {
-  getSettings: () =>
-    fetch("http://localhost:3001/api/settings").then(handleApiResponse),
-  updateSettings: (data) =>
-    fetch("http://localhost:3001/api/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then(handleApiResponse),
-};
+// API helper and 'api' object removed
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -31,7 +11,7 @@ export default function Settings() {
 
   const { data: initialSettings, isLoading } = useQuery({
     queryKey: ["settings"],
-    queryFn: api.getSettings,
+    queryFn: window.electronAPI.getSettings, // Changed
   });
 
   useEffect(() => {
@@ -41,7 +21,7 @@ export default function Settings() {
   }, [initialSettings]);
 
   const { mutate: updateSettings, isPending } = useMutation({
-    mutationFn: api.updateSettings,
+    mutationFn: window.electronAPI.updateSettings, // Changed
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
       toast.success("Settings saved successfully!");

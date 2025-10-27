@@ -8,8 +8,7 @@
     "build:frontend": "cd frontend && npm install && npm run build",
     "package": "npm run build:frontend && electron-builder",
     "postinstall": "electron-builder install-app-deps",
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "nodemon backend/server.js",
+    "dev": "concurrently \"npm:dev:frontend\" \"npm:dev:electron\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:electron": "wait-on http://localhost:5174 && electron ."
   },
@@ -18,18 +17,13 @@
   "license": "ISC",
   "dependencies": {
     "better-sqlite3": "^9.4.3",
-    "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
     "node-machine-id": "^1.1.12"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
     "electron": "^28.2.3",
     "electron-builder": "^24.9.1",
-    "nodemon": "^3.1.10",
-    "wait-on": "^9.0.1",
-    "node-machine-id": "^1.1.12"
+    "wait-on": "^9.0.1"
   },
   "build": {
     "appId": "com.facturation.app",

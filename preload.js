@@ -1,6 +1,18 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
-  // You can expose specific backend functions here if needed,
-  // but for this structure, we'll use HTTP requests to the local server.
+  // Facturation
+  getFactures: (args) => ipcRenderer.invoke("db:getFactures", args),
+  createFacture: (data) => ipcRenderer.invoke("db:createFacture", data),
+  updateFacture: (id, data) =>
+    ipcRenderer.invoke("db:updateFacture", { id, data }),
+  deleteFacture: (id) => ipcRenderer.invoke("db:deleteFacture", id),
+
+  // Settings
+  getSettings: () => ipcRenderer.invoke("db:getSettings"),
+  updateSettings: (data) => ipcRenderer.invoke("db:updateSettings", data),
+
+  // Theme
+  getTheme: () => ipcRenderer.invoke("db:getTheme"),
+  updateTheme: (data) => ipcRenderer.invoke("db:updateTheme", data),
 });

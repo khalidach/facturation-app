@@ -2,12 +2,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { numberToWordsFr } from "@/services/numberToWords.js";
 
-const api = {
-  getSettings: () =>
-    fetch("http://localhost:3001/api/settings").then((res) => res.json()),
-  getTheme: () =>
-    fetch("http://localhost:3001/api/theme").then((res) => res.json()),
-};
+// 'api' object removed
 
 // Helper to get nested style object
 const getStyle = (styles, path) => {
@@ -21,12 +16,12 @@ const getStyle = (styles, path) => {
 export default function FacturePDF({ facture, themeStyles }) {
   const { data: settings } = useQuery({
     queryKey: ["settings"],
-    queryFn: api.getSettings,
+    queryFn: window.electronAPI.getSettings, // Changed
   });
 
   const { data: savedTheme } = useQuery({
     queryKey: ["theme"],
-    queryFn: api.getTheme,
+    queryFn: window.electronAPI.getTheme, // Changed
     enabled: !themeStyles, // Only fetch if no theme is passed via props
   });
 

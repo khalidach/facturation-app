@@ -5,27 +5,7 @@ import { Save, Palette } from "lucide-react";
 import FacturePDF from "@/components/facturation/FacturePDF.jsx";
 import ThemeEditor from "@/components/theme/ThemeEditor.jsx";
 
-// API helper
-const handleApiResponse = async (response) => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error || `Request failed: ${response.statusText}`
-    );
-  }
-  return response.json();
-};
-
-const api = {
-  getTheme: () =>
-    fetch("http://localhost:3001/api/theme").then(handleApiResponse),
-  updateTheme: (data) =>
-    fetch("http://localhost:3001/api/theme", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then(handleApiResponse),
-};
+// API helper and 'api' object removed
 
 // Default styles structure
 const initialStyles = {
@@ -150,7 +130,7 @@ export default function Theme() {
 
   const { data: themeData, isLoading } = useQuery({
     queryKey: ["theme"],
-    queryFn: api.getTheme,
+    queryFn: window.electronAPI.getTheme, // Changed
   });
 
   useEffect(() => {
@@ -183,7 +163,8 @@ export default function Theme() {
   }, [themeData]);
 
   const { mutate: updateTheme, isPending } = useMutation({
-    mutationFn: (newStyles) => api.updateTheme({ styles: newStyles }),
+    mutationFn: (newStyles) =>
+      window.electronAPI.updateTheme({ styles: newStyles }), // Changed
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["theme"] });
       toast.success("Theme saved successfully!");

@@ -10,51 +10,7 @@ import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
 import PaginationControls from "@/components/PaginationControls.jsx";
 
-// API helper to handle responses and errors
-const handleApiResponse = async (response) => {
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error || `Request failed: ${response.statusText}`
-    );
-  }
-  return response.json();
-};
-
-const api = {
-  getFactures: (page = 1, limit = 10, search = "", sortBy = "newest") => {
-    const params = new URLSearchParams({
-      page,
-      limit,
-      search,
-      sortBy,
-    });
-    return fetch(
-      `http://localhost:3001/api/factures?${params.toString()}`
-    ).then(handleApiResponse);
-  },
-  createFacture: (data) =>
-    fetch("http://localhost:3001/api/factures", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then(handleApiResponse),
-  updateFacture: (id, data) =>
-    fetch(`http://localhost:3001/api/factures/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).then(handleApiResponse),
-  deleteFacture: (id) =>
-    fetch(`http://localhost:3001/api/factures/${id}`, {
-      method: "DELETE",
-    }).then((res) => {
-      if (!res.ok) {
-        throw new Error("Failed to delete");
-      }
-      return;
-    }),
-};
+// API helper and 'api' object are removed. We now use window.electronAPI
 
 export default function Facturation() {
   const queryClient = useQueryClient();
@@ -68,7 +24,7 @@ export default function Facturation() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   const facturesPerPage = 10;
 
-  // Debounce search term to avoid excessive API calls
+  // Debounce search term
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
@@ -88,12 +44,12 @@ export default function Facturation() {
   const { data: facturesResponse, isLoading } = useQuery({
     queryKey: ["factures", currentPage, debouncedSearchTerm, sortBy],
     queryFn: () =>
-      api.getFactures(
-        currentPage,
-        facturesPerPage,
-        debouncedSearchTerm,
-        sortBy
-      ),
+      window.electronAPI.getFactures({
+        page: currentPage,
+        limit: facturesPerPage,
+        search: debouncedSearchTerm,
+        sortBy: sortBy,
+      }),
     placeholderData: (prev) => prev,
   });
 
@@ -101,7 +57,7 @@ export default function Facturation() {
   const pagination = facturesResponse?.pagination;
 
   const { mutate: createFacture } = useMutation({
-    mutationFn: api.createFacture,
+    mutationFn: window.electronAPI.createFacture,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document created successfully!");
@@ -111,7 +67,7 @@ export default function Facturation() {
   });
 
   const { mutate: updateFacture } = useMutation({
-    mutationFn: (data) => api.updateFacture(data.id, data),
+    mutationFn: (data) => window.electronAPI.updateFacture(data.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document updated successfully!");
@@ -121,7 +77,7 @@ export default function Facturation() {
   });
 
   const { mutate: deleteFacture } = useMutation({
-    mutationFn: api.deleteFacture,
+    mutationFn: window.electronAPI.deleteFacture,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document deleted successfully!");
@@ -169,7 +125,6 @@ export default function Facturation() {
         }
       };
 
-      // Delay to ensure component renders before we try to capture it
       const timer = setTimeout(generatePdf, 100);
       return () => clearTimeout(timer);
     }
