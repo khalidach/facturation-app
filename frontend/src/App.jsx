@@ -5,7 +5,13 @@ import Facturation from "./pages/Facturation.jsx";
 import Settings from "./pages/Settings.jsx";
 import Theme from "./pages/Theme.jsx";
 import Verification from "./pages/Verification.jsx";
-import { Settings as SettingsIcon, FileText, Palette } from "lucide-react";
+import Contacts from "./pages/Contacts.jsx"; // 1. IMPORT NEW PAGE
+import {
+  Settings as SettingsIcon,
+  FileText,
+  Palette,
+  Users, // 2. IMPORT NEW ICON
+} from "lucide-react";
 
 const queryClient = new QueryClient();
 const STORAGE_KEY = "facturation-app-license"; // Key to check for verification
@@ -74,6 +80,18 @@ export default function App() {
               <FileText className="w-5 h-5 mr-3" />
               Facturation
             </button>
+            {/* 3. ADD NEW CONTACTS BUTTON */}
+            <button
+              onClick={() => setActiveTab("contacts")}
+              className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
+                activeTab === "contacts"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
+              }`}
+            >
+              <Users className="w-5 h-5 mr-3" />
+              Contacts
+            </button>
             <button
               onClick={() => setActiveTab("settings")}
               className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
@@ -106,6 +124,12 @@ export default function App() {
           {activeTab === "facturation" && (
             <div className="p-8">
               <Facturation />
+            </div>
+          )}
+          {/* 4. ADD NEW CONTACTS CONTENT */}
+          {activeTab === "contacts" && (
+            <div className="p-8">
+              <Contacts />
             </div>
           )}
           {activeTab === "settings" && (

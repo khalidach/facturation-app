@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import ClientSearch from "./ClientSearch.jsx"; // 1. IMPORT NEW COMPONENT
 
 const emptyItem = {
   description: "",
@@ -75,6 +76,13 @@ export default function FactureForm({
       setFactureNumber("");
     }
   }, [existingFacture, showMarginOnNew]);
+
+  // 2. NEW HANDLER FOR CLIENT SELECTION
+  const handleClientSelect = (client) => {
+    setClientName(client.name);
+    setClientAddress(client.address || "");
+    setClientICE(client.ice || "");
+  };
 
   const handleItemChange = (index, field, value) => {
     const newItems = [...items];
@@ -167,10 +175,10 @@ export default function FactureForm({
         .toggle-checkbox:checked { right: 0; border-color: #3b82f6; }
         .toggle-checkbox:checked + .toggle-label { background-color: #3b82f6; }
       `}</style>
-      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+      <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <label
           htmlFor="show-margin-toggle"
-          className="font-medium text-gray-700"
+          className="font-medium text-gray-700 dark:text-gray-300"
         >
           Display Service Fees & TVA
         </label>
@@ -200,7 +208,7 @@ export default function FactureForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Document Number
           </label>
           <input
@@ -208,68 +216,69 @@ export default function FactureForm({
             value={factureNumber}
             onChange={(e) => setFactureNumber(e.target.value)}
             placeholder="Auto-generated if left empty"
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md disabled:bg-gray-100"
+            className="input"
             disabled={!!existingFacture}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Document Type
           </label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="input"
           >
             <option value="facture">Invoice</option>
             <option value="devis">Quote</option>
           </select>
         </div>
       </div>
-      <h3 className="text-lg font-medium text-gray-900 border-b pb-2">
+      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 border-b dark:border-gray-700 pb-2">
         Client Info
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 3. REPLACE CLIENT FIELDS */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Client Name
-          </label>
-          <input
-            type="text"
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+          <ClientSearch
+            onClientSelect={handleClientSelect}
+            initialName={clientName}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Client Address
           </label>
           <input
             type="text"
             value={clientAddress}
             onChange={(e) => setClientAddress(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+            placeholder="Auto-filled from client"
+            className="input"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">ICE</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            ICE
+          </label>
           <input
             type="text"
             value={clientICE}
             onChange={(e) => setClientICE(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+            placeholder="Auto-filled from client"
+            className="input"
           />
         </div>
+        {/* END REPLACEMENT */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Date
           </label>
           <DatePicker
             selected={date}
             onChange={(d) => setDate(d)}
             dateFormat="dd/MM/yyyy"
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="input"
             required
             showMonthDropdown
             showYearDropdown
@@ -278,10 +287,12 @@ export default function FactureForm({
         </div>
       </div>
 
-      <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Items</h3>
+      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 border-b dark:border-gray-700 pb-2">
+        Items
+      </h3>
       <div className="space-y-4">
         <div
-          className={`hidden md:grid ${gridColsClass} gap-2 text-sm font-medium text-gray-500`}
+          className={`hidden md:grid ${gridColsClass} gap-2 text-sm font-medium text-gray-500 dark:text-gray-400`}
         >
           <div className={descColSpan}>DESIGNATION</div>
           <div className="col-span-1 text-center">QU</div>
@@ -304,7 +315,7 @@ export default function FactureForm({
                 onChange={(e) =>
                   handleItemChange(index, "description", e.target.value)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none overflow-hidden"
+                className="input resize-none overflow-hidden"
                 rows={1}
                 onInput={(e) => {
                   e.target.style.height = "auto";
@@ -320,7 +331,7 @@ export default function FactureForm({
                 onChange={(e) =>
                   handleItemChange(index, "quantity", Number(e.target.value))
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-center"
+                className="input text-center"
                 required
               />
             </div>
@@ -335,7 +346,7 @@ export default function FactureForm({
                     Number(e.target.value)
                   )
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-right"
+                className="input text-right"
                 required
               />
             </div>
@@ -351,13 +362,13 @@ export default function FactureForm({
                       Number(e.target.value)
                     )
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-right"
+                  className="input text-right"
                   required
                 />
               </div>
             )}
             <div className={`col-span-10 ${totalColSpan}`}>
-              <div className="w-full px-3 py-2 text-right font-medium bg-gray-100 rounded-md">
+              <div className="w-full px-3 py-2 text-right font-medium bg-gray-100 dark:bg-gray-800 dark:text-gray-200 rounded-md">
                 {item.total.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -378,7 +389,7 @@ export default function FactureForm({
         <button
           type="button"
           onClick={addItem}
-          className="inline-flex items-center px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+          className="inline-flex items-center px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
         >
           <Plus className="w-4 h-4 mr-1" /> Add Item
         </button>
@@ -388,11 +399,11 @@ export default function FactureForm({
         <div className="w-full max-w-sm space-y-2 text-sm">
           {showMargin && (
             <>
-              <div className="flex justify-between p-2 bg-gray-50 rounded-md">
-                <span className="font-medium text-gray-600">
+              <div className="flex justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md">
+                <span className="font-medium text-gray-600 dark:text-gray-400">
                   Prix Total H. Frais de SCE
                 </span>
-                <span className="font-semibold text-gray-800">
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
                   {calculatedTotals.prixTotalHorsFrais.toLocaleString(
                     undefined,
                     {
@@ -404,10 +415,10 @@ export default function FactureForm({
                 </span>
               </div>
               <div className="flex justify-between p-2">
-                <span className="font-medium text-gray-600">
+                <span className="font-medium text-gray-600 dark:text-gray-400">
                   Frais de Service Hors TVA
                 </span>
-                <span className="font-semibold text-gray-800">
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
                   {calculatedTotals.totalFraisServiceHT.toLocaleString(
                     undefined,
                     {
@@ -419,8 +430,10 @@ export default function FactureForm({
                 </span>
               </div>
               <div className="flex justify-between p-2">
-                <span className="font-medium text-gray-600">TVA 20%</span>
-                <span className="font-semibold text-gray-800">
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  TVA 20%
+                </span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200">
                   {calculatedTotals.tva.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
@@ -430,7 +443,7 @@ export default function FactureForm({
               </div>
             </>
           )}
-          <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2 p-2 bg-gray-100 rounded-md">
+          <div className="flex justify-between font-bold text-lg border-t dark:border-gray-700 pt-2 mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-md text-gray-900 dark:text-gray-100">
             <span>Total Facture</span>
             <span>
               {calculatedTotals.totalFacture.toLocaleString(undefined, {
@@ -444,21 +457,23 @@ export default function FactureForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">Notes</label>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Notes
+        </label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Add any notes here..."
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+          className="input"
           rows={3}
         ></textarea>
       </div>
 
-      <div className="flex justify-end space-x-3 pt-6 border-t mt-6">
+      <div className="flex justify-end space-x-3 pt-6 border-t dark:border-gray-700 mt-6">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+          className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
         >
           Cancel
         </button>
