@@ -312,6 +312,179 @@ ipcMain.handle("license:verify", async (event, args) => {
   }
 });
 
+// --- NEW IPC HANDLERS FOR CLIENTS ---
+
+ipcMain.handle("db:getClients", (event, args) => {
+  const { page = 1, limit = 10, search = "" } = args;
+  const offset = (page - 1) * limit;
+
+  let whereClause = "";
+  const params = [];
+  const countParams = [];
+
+  if (search) {
+    whereClause = `
+      WHERE name LIKE ? 
+      OR email LIKE ? 
+      OR phone LIKE ?
+      OR ice LIKE ?
+    `;
+    const likeTerm = `%${search}%`;
+    params.push(likeTerm, likeTerm, likeTerm, likeTerm);
+    countParams.push(likeTerm, likeTerm, likeTerm, likeTerm);
+  }
+
+  try {
+    const countQuery = `SELECT COUNT(*) as totalCount FROM clients ${whereClause}`;
+    const { totalCount } = db.prepare(countQuery).get(...countParams);
+
+    const dataQuery = `SELECT * FROM clients ${whereClause} ORDER BY name ASC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    const clients = db.prepare(dataQuery).all(...params);
+
+    return {
+      data: clients,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount: totalCount,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to get clients:", error);
+    throw new Error(error.message);
+  }
+});
+
+ipcMain.handle("db:createClient", (event, data) => {
+  const { name, address, ice, email, phone, notes } = data;
+  try {
+    const stmt = db.prepare(
+      "INSERT INTO clients (name, address, ice, email, phone, notes) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    const info = stmt.run(name, address, ice, email, phone, notes);
+    return { id: info.lastInsertRowid, ...data };
+  } catch (error) {
+    console.error("Failed to create client:", error);
+    throw new Error(error.message);
+  }
+});
+
+ipcMain.handle("db:updateClient", (event, args) => {
+  const { id, data } = args;
+  const { name, address, ice, email, phone, notes } = data;
+  try {
+    const stmt = db.prepare(
+      "UPDATE clients SET name = ?, address = ?, ice = ?, email = ?, phone = ?, notes = ? WHERE id = ?"
+    );
+    stmt.run(name, address, ice, email, phone, notes, id);
+    return { id, ...data };
+  } catch (error) {
+    console.error("Failed to update client:", error);
+    throw new Error(error.message);
+  }
+});
+
+ipcMain.handle("db:deleteClient", (event, id) => {
+  try {
+    db.prepare("DELETE FROM clients WHERE id = ?").run(id);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete client:", error);
+    throw new Error(error.message);
+  }
+});
+
+// --- NEW IPC HANDLERS FOR SUPPLIERS ---
+
+ipcMain.handle("db:getSuppliers", (event, args) => {
+  const { page = 1, limit = 10, search = "" } = args;
+  const offset = (page - 1) * limit;
+
+  let whereClause = "";
+  const params = [];
+  const countParams = [];
+
+  if (search) {
+    whereClause = `
+      WHERE name LIKE ? 
+      OR email LIKE ? 
+      OR phone LIKE ?
+      OR service_type LIKE ?
+    `;
+    const likeTerm = `%${search}%`;
+    params.push(likeTerm, likeTerm, likeTerm, likeTerm);
+    countParams.push(likeTerm, likeTerm, likeTerm, likeTerm);
+  }
+
+  try {
+    const countQuery = `SELECT COUNT(*) as totalCount FROM suppliers ${whereClause}`;
+    const { totalCount } = db.prepare(countQuery).get(...countParams);
+
+    const dataQuery = `SELECT * FROM suppliers ${whereClause} ORDER BY name ASC LIMIT ? OFFSET ?`;
+    params.push(limit, offset);
+    const suppliers = db.prepare(dataQuery).all(...params);
+
+    return {
+      data: suppliers,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalCount / limit),
+        totalCount: totalCount,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to get suppliers:", error);
+    throw new Error(error.message);
+  }
+});
+
+ipcMain.handle("db:createSupplier", (event, data) => {
+  const { name, service_type, contact_person, email, phone, notes } = data;
+  try {
+    const stmt = db.prepare(
+      "INSERT INTO suppliers (name, service_type, contact_person, email, phone, notes) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    const info = stmt.run(
+      name,
+      service_type,
+      contact_person,
+      email,
+      phone,
+      notes
+    );
+    return { id: info.lastInsertRowid, ...data };
+  } catch (error) {
+    console.error("Failed to create supplier:", error);
+    throw new Error(error.message);
+  }
+});
+
+ipcMain.handle("db:updateSupplier", (event, args) => {
+  const { id, data } = args;
+  const { name, service_type, contact_person, email, phone, notes } = data;
+  try {
+    const stmt = db.prepare(
+      "UPDATE suppliers SET name = ?, service_type = ?, contact_person = ?, email = ?, phone = ?, notes = ? WHERE id = ?"
+    );
+    stmt.run(name, service_type, contact_person, email, phone, notes, id);
+    return { id, ...data };
+  } catch (error) {
+    console.error("Failed to update supplier:", error);
+    throw new Error(error.message);
+  }
+});
+
+ipcMain.handle("db:deleteSupplier", (event, id) => {
+  try {
+    db.prepare("DELETE FROM suppliers WHERE id = ?").run(id);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete supplier:", error);
+    throw new Error(error.message);
+  }
+});
+
 // --- App Lifecycle ---
 
 app.whenReady().then(() => {

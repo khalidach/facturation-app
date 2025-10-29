@@ -60,7 +60,31 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `;
 
-const dropThemeTable = `DROP TABLE IF EXISTS theme;`;
+const createClientsTable = `
+CREATE TABLE IF NOT EXISTS clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    address TEXT,
+    ice TEXT,
+    email TEXT,
+    phone TEXT,
+    notes TEXT,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+const createSuppliersTable = `
+CREATE TABLE IF NOT EXISTS suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    service_type TEXT,
+    contact_person TEXT,
+    email TEXT,
+    phone TEXT,
+    notes TEXT,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`;
 
 const createThemeTable = `
 CREATE TABLE IF NOT EXISTS theme (
@@ -72,6 +96,8 @@ CREATE TABLE IF NOT EXISTS theme (
 db.exec(createFacturesTable);
 db.exec(createSettingsTable);
 db.exec(createThemeTable);
+db.exec(createClientsTable);
+db.exec(createSuppliersTable);
 
 // --- Schema Migration ---
 // Check if the 'factures' table exists before trying to alter it.

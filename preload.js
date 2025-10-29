@@ -21,4 +21,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // The main process will handle adding the machineId.
   licenseVerify: (licenseCode) =>
     ipcRenderer.invoke("license:verify", { licenseCode }),
+
+  // --- NEW CLIENTS API ---
+  getClients: (args) => ipcRenderer.invoke("db:getClients", args),
+  createClient: (data) => ipcRenderer.invoke("db:createClient", data),
+  updateClient: (id, data) =>
+    ipcRenderer.invoke("db:updateClient", { id, data }),
+  deleteClient: (id) => ipcRenderer.invoke("db:deleteClient", id),
+
+  // --- NEW SUPPLIERS API ---
+  getSuppliers: (args) => ipcRenderer.invoke("db:getSuppliers", args),
+  createSupplier: (data) => ipcRenderer.invoke("db:createSupplier", data),
+  updateSupplier: (id, data) =>
+    ipcRenderer.invoke("db:updateSupplier", { id, data }),
+  deleteSupplier: (id) => ipcRenderer.invoke("db:deleteSupplier", id),
 });
