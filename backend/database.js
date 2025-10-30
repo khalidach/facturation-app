@@ -93,32 +93,129 @@ CREATE TABLE IF NOT EXISTS theme (
 );
 `;
 
+// Run all table creation scripts first to ensure baseline schema
 db.exec(createFacturesTable);
 db.exec(createSettingsTable);
 db.exec(createThemeTable);
 db.exec(createClientsTable);
 db.exec(createSuppliersTable);
 
-// --- Schema Migration ---
-// Check if the 'factures' table exists before trying to alter it.
-const tableCheck = db
-  .prepare(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name='factures'"
-  )
-  .get();
-if (tableCheck) {
-  // Check if the facture_number_int column is missing and add it.
-  const columns = db.prepare("PRAGMA table_info(factures)").all();
-  const hasIntColumn = columns.some((col) => col.name === "facture_number_int");
+// --- NEW: Database Migration System ---
 
-  if (!hasIntColumn) {
-    try {
-      db.exec("ALTER TABLE factures ADD COLUMN facture_number_int INTEGER");
-      console.log("Database schema migrated: Added facture_number_int column.");
-    } catch (error) {
-      console.error("Failed to migrate database schema:", error);
+// Define all migrations.
+// Each key is the version number.
+// The value can be a SQL string OR a function that runs logic.
+const migrations = {
+  1: () => {
+    // This was the old PRAGMA check.
+    // It adds 'facture_number_int' if it's missing, for users with the old schema.
+    console.log("Checking for migration 1: facture_number_int...");
+    const tableCheck = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='factures'"
+      )
+      .get();
+    if (tableCheck) {
+      const columns = db.prepare("PRAGMA table_info(factures)").all();
+      const hasIntColumn = columns.some(
+        (col) => col.name === "facture_number_int"
+      );
+
+      if (!hasIntColumn) {
+        db.exec("ALTER TABLE factures ADD COLUMN facture_number_int INTEGER");
+        console.log(
+          "  > Migration 1 applied: Added facture_number_int column."
+        );
+      } else {
+        console.log("  > Migration 1 already applied.");
+      }
     }
+  },
+  // --- NEW MIGRATION ---
+  2: () => {
+    console.log("Running migration 2: Add search and sort indexes...");
+    db.exec(`
+      -- Factures: For searching by clientName and sorting by date
+      CREATE INDEX IF NOT EXISTS idx_factures_clientName ON factures(clientName);
+      CREATE INDEX IF NOT EXISTS idx_factures_createdAt ON factures(createdAt); 
+      
+      -- Clients: For searching on common fields (name is already indexed by UNIQUE)
+      CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
+      CREATE INDEX IF NOT EXISTS idx_clients_phone ON clients(phone);
+      CREATE INDEX IF NOT EXISTS idx_clients_ice ON clients(ice);
+
+      -- Suppliers: For searching on common fields (name is already indexed by UNIQUE)
+      CREATE INDEX IF NOT EXISTS idx_suppliers_email ON suppliers(email);
+      CREATE INDEX IF NOT EXISTS idx_suppliers_phone ON suppliers(phone);
+      CREATE INDEX IF NOT EXISTS idx_suppliers_service_type ON suppliers(service_type);
+    `);
+    console.log("  > Migration 2 applied: Search and sort indexes created.");
+  },
+  // Example for the future:
+  // 3: `ALTER TABLE clients ADD COLUMN loyalty_points INTEGER DEFAULT 0;`,
+};
+
+// Set the latest version of the database schema by finding the highest key
+const LATEST_VERSION = Object.keys(migrations).reduce(
+  (a, b) => Math.max(a, b),
+  0
+);
+
+/**
+ * Runs all pending database migrations.
+ */
+function runMigrations() {
+  try {
+    // Get the current version from the settings table
+    const row = db
+      .prepare("SELECT value FROM settings WHERE key = 'db_version'")
+      .get();
+    let currentVersion = row ? parseInt(row.value, 10) : 0;
+
+    if (currentVersion >= LATEST_VERSION) {
+      console.log(`Database is up to date (version ${currentVersion}).`);
+      return;
+    }
+
+    console.log(
+      `Database version ${currentVersion}. Migrating to ${LATEST_VERSION}...`
+    );
+
+    // Run migrations in a transaction
+    db.transaction(() => {
+      for (let v = currentVersion + 1; v <= LATEST_VERSION; v++) {
+        const migration = migrations[v];
+        if (migration) {
+          console.log(`Running migration ${v}...`);
+          if (typeof migration === "function") {
+            migration(); // Run the function
+          } else {
+            db.exec(migration); // Run the SQL string
+          }
+        }
+      }
+
+      // Update the database version in the settings table
+      db.prepare(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)"
+      ).run("db_version", LATEST_VERSION);
+    })();
+
+    console.log(
+      `Database migration successful. Now at version ${LATEST_VERSION}.`
+    );
+  } catch (error) {
+    console.error("Failed to run database migrations:", error);
+    // The transaction will be rolled back automatically
   }
 }
+
+// Run the migrations on app start
+runMigrations();
+
+// --- END NEW MIGRATION SYSTEM ---
+
+// The old 'Schema Migration' PRAGMA block has been removed,
+// as it is now handled by migration 1.
 
 module.exports = db;
