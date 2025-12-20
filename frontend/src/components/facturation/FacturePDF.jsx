@@ -1,8 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { numberToWordsFr } from "@/services/numberToWords.js";
-
-// 'api' object removed
+// Fixed: Changed alias path to relative path for better compatibility with the preview environment
+import { numberToWordsFr } from "../../services/numberToWords.js";
 
 // Helper to get nested style object
 const getStyle = (styles, path) => {
@@ -16,12 +15,12 @@ const getStyle = (styles, path) => {
 export default function FacturePDF({ facture, themeStyles }) {
   const { data: settings } = useQuery({
     queryKey: ["settings"],
-    queryFn: window.electronAPI.getSettings, // Changed
+    queryFn: window.electronAPI.getSettings,
   });
 
   const { data: savedTheme } = useQuery({
     queryKey: ["theme"],
-    queryFn: window.electronAPI.getTheme, // Changed
+    queryFn: window.electronAPI.getTheme,
     enabled: !themeStyles, // Only fetch if no theme is passed via props
   });
 
@@ -32,7 +31,11 @@ export default function FacturePDF({ facture, themeStyles }) {
   const footerStyles = styles.footer || {};
 
   const totalInWords = numberToWordsFr(facture.total);
-  const showMargin = facture.showMargin ?? true;
+
+  // CRITICAL FIX: Cast showMargin to a strict boolean.
+  // SQLite stores booleans as 0/1. If React sees {0 && ...}, it renders "0".
+  const showMargin = !!(facture.showMargin ?? true);
+
   const parsedItems =
     typeof facture.items === "string"
       ? JSON.parse(facture.items)
@@ -152,7 +155,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                 >
                   PRIX UNITAIRE
                 </th>
-                {showMargin && (
+                {showMargin === true && (
                   <th
                     style={{
                       ...getStyle(styles, "body.table.header"),
@@ -205,7 +208,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                       { minimumFractionDigits: 2, maximumFractionDigits: 2 }
                     )}
                   </td>
-                  {showMargin && (
+                  {showMargin === true && (
                     <td
                       style={{
                         ...getStyle(styles, "body.table.cell"),
@@ -235,7 +238,7 @@ export default function FacturePDF({ facture, themeStyles }) {
             </tbody>
           </table>
           <div style={getStyle(styles, "body.totals.container")}>
-            {showMargin && (
+            {showMargin === true && (
               <>
                 <div style={getStyle(styles, "body.totals.row")}>
                   <span style={getStyle(styles, "body.totals.label")}>

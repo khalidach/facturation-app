@@ -1,16 +1,9 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const db = require("./backend/database"); // Import the database
-// Import the node-machine-id package
 const { machineIdSync } = require("node-machine-id");
 
-// --- NEW ---
-// Get the persistent, original hardware ID.
-// This ID will remain the same even if the user uninstalls and reinstalls the app.
 const persistentMachineId = machineIdSync({ original: true });
-// --- END NEW ---
-
-// Determine if we are in development mode
 const isDev = process.env.npm_lifecycle_event === "dev:electron";
 
 function createWindow() {
@@ -24,7 +17,6 @@ function createWindow() {
     },
   });
 
-  // Load from Vite dev server in development, or from the built file in production
   const startUrl = isDev
     ? "http://localhost:5174"
     : `file://${path.join(__dirname, "frontend/dist/index.html")}`;
@@ -32,7 +24,7 @@ function createWindow() {
   mainWindow.loadURL(startUrl);
 }
 
-// --- IPC Handlers (Replaces backend/server.js) ---
+// --- IPC Handlers ---
 
 // Get all factures
 ipcMain.handle("db:getFactures", (event, args) => {
@@ -115,12 +107,17 @@ ipcMain.handle("db:createFacture", (event, data) => {
       if (!isNaN(numberPart)) newNum = numberPart;
     } else {
       const year = new Date(date).getFullYear().toString();
+
+      // FIX: Removed 'type = ?' from the query.
+      // Since 'facture_number' must be UNIQUE in the database,
+      // we must find the maximum number across ALL types for this year to avoid collisions.
       const lastFactureStmt = db.prepare(
         `SELECT MAX(CAST(SUBSTR(facture_number, 1, INSTR(facture_number, '/') - 1) AS INTEGER)) as maxNum 
          FROM factures 
-         WHERE type = ? AND STRFTIME('%Y', date) = ?`
+         WHERE STRFTIME('%Y', date) = ?`
       );
-      const lastFacture = lastFactureStmt.get(type, year);
+
+      const lastFacture = lastFactureStmt.get(year);
       newNum = (lastFacture.maxNum || 0) + 1;
       facture_number = `${String(newNum).padStart(3, "0")}/${year}`;
     }
@@ -147,6 +144,10 @@ ipcMain.handle("db:createFacture", (event, data) => {
     return { id: info.lastInsertRowid, ...data, facture_number };
   } catch (error) {
     console.error("Failed to create facture:", error);
+    // Provide a clearer error message for the UI
+    if (error.message.includes("UNIQUE constraint failed")) {
+      throw new Error("This document number already exists in the system.");
+    }
     throw new Error(error.message);
   }
 });
@@ -274,8 +275,6 @@ ipcMain.handle("db:updateTheme", (event, data) => {
 
 // --- License Verification IPC Handler ---
 ipcMain.handle("license:verify", async (event, args) => {
-  // We no longer get machineId from the frontend.
-  // We only get licenseCode.
   const { licenseCode } = args;
   const VERIFICATION_API_URL =
     "https://verification-code.netlify.app/api/verify";
@@ -283,18 +282,14 @@ ipcMain.handle("license:verify", async (event, args) => {
   try {
     const response = await fetch(VERIFICATION_API_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         licenseCode: licenseCode,
-        // We now send the *persistent* hardware ID
         machineId: persistentMachineId,
       }),
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       throw new Error(
         data.message || `Server responded with ${response.status}`
@@ -303,55 +298,46 @@ ipcMain.handle("license:verify", async (event, args) => {
     return data;
   } catch (error) {
     console.error("License verification fetch failed:", error);
-    if (error instanceof SyntaxError) {
-      throw new Error("Invalid (non-JSON) response from license server.");
-    }
     throw new Error(
       error.message || "Could not connect to verification service."
     );
   }
 });
 
-// --- NEW IPC HANDLERS FOR CLIENTS ---
-
+// --- CLIENTS IPC HANDLERS ---
 ipcMain.handle("db:getClients", (event, args) => {
   const { page = 1, limit = 10, search = "" } = args;
   const offset = (page - 1) * limit;
-
   let whereClause = "";
   const params = [];
   const countParams = [];
 
   if (search) {
-    whereClause = `
-      WHERE name LIKE ? 
-      OR email LIKE ? 
-      OR phone LIKE ?
-      OR ice LIKE ?
-    `;
+    whereClause =
+      "WHERE name LIKE ? OR email LIKE ? OR phone LIKE ? OR ice LIKE ?";
     const likeTerm = `%${search}%`;
     params.push(likeTerm, likeTerm, likeTerm, likeTerm);
     countParams.push(likeTerm, likeTerm, likeTerm, likeTerm);
   }
 
   try {
-    const countQuery = `SELECT COUNT(*) as totalCount FROM clients ${whereClause}`;
-    const { totalCount } = db.prepare(countQuery).get(...countParams);
-
-    const dataQuery = `SELECT * FROM clients ${whereClause} ORDER BY name ASC LIMIT ? OFFSET ?`;
-    params.push(limit, offset);
-    const clients = db.prepare(dataQuery).all(...params);
-
+    const { totalCount } = db
+      .prepare(`SELECT COUNT(*) as totalCount FROM clients ${whereClause}`)
+      .get(...countParams);
+    const clients = db
+      .prepare(
+        `SELECT * FROM clients ${whereClause} ORDER BY name ASC LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset);
     return {
       data: clients,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
-        totalCount: totalCount,
+        totalCount,
       },
     };
   } catch (error) {
-    console.error("Failed to get clients:", error);
     throw new Error(error.message);
   }
 });
@@ -359,13 +345,13 @@ ipcMain.handle("db:getClients", (event, args) => {
 ipcMain.handle("db:createClient", (event, data) => {
   const { name, address, ice, email, phone, notes } = data;
   try {
-    const stmt = db.prepare(
-      "INSERT INTO clients (name, address, ice, email, phone, notes) VALUES (?, ?, ?, ?, ?, ?)"
-    );
-    const info = stmt.run(name, address, ice, email, phone, notes);
+    const info = db
+      .prepare(
+        "INSERT INTO clients (name, address, ice, email, phone, notes) VALUES (?, ?, ?, ?, ?, ?)"
+      )
+      .run(name, address, ice, email, phone, notes);
     return { id: info.lastInsertRowid, ...data };
   } catch (error) {
-    console.error("Failed to create client:", error);
     throw new Error(error.message);
   }
 });
@@ -374,13 +360,11 @@ ipcMain.handle("db:updateClient", (event, args) => {
   const { id, data } = args;
   const { name, address, ice, email, phone, notes } = data;
   try {
-    const stmt = db.prepare(
+    db.prepare(
       "UPDATE clients SET name = ?, address = ?, ice = ?, email = ?, phone = ?, notes = ? WHERE id = ?"
-    );
-    stmt.run(name, address, ice, email, phone, notes, id);
+    ).run(name, address, ice, email, phone, notes, id);
     return { id, ...data };
   } catch (error) {
-    console.error("Failed to update client:", error);
     throw new Error(error.message);
   }
 });
@@ -390,51 +374,44 @@ ipcMain.handle("db:deleteClient", (event, id) => {
     db.prepare("DELETE FROM clients WHERE id = ?").run(id);
     return { success: true };
   } catch (error) {
-    console.error("Failed to delete client:", error);
     throw new Error(error.message);
   }
 });
 
-// --- NEW IPC HANDLERS FOR SUPPLIERS ---
-
+// --- SUPPLIERS IPC HANDLERS ---
 ipcMain.handle("db:getSuppliers", (event, args) => {
   const { page = 1, limit = 10, search = "" } = args;
   const offset = (page - 1) * limit;
-
   let whereClause = "";
   const params = [];
   const countParams = [];
 
   if (search) {
-    whereClause = `
-      WHERE name LIKE ? 
-      OR email LIKE ? 
-      OR phone LIKE ?
-      OR service_type LIKE ?
-    `;
+    whereClause =
+      "WHERE name LIKE ? OR email LIKE ? OR phone LIKE ? OR service_type LIKE ?";
     const likeTerm = `%${search}%`;
     params.push(likeTerm, likeTerm, likeTerm, likeTerm);
     countParams.push(likeTerm, likeTerm, likeTerm, likeTerm);
   }
 
   try {
-    const countQuery = `SELECT COUNT(*) as totalCount FROM suppliers ${whereClause}`;
-    const { totalCount } = db.prepare(countQuery).get(...countParams);
-
-    const dataQuery = `SELECT * FROM suppliers ${whereClause} ORDER BY name ASC LIMIT ? OFFSET ?`;
-    params.push(limit, offset);
-    const suppliers = db.prepare(dataQuery).all(...params);
-
+    const { totalCount } = db
+      .prepare(`SELECT COUNT(*) as totalCount FROM suppliers ${whereClause}`)
+      .get(...countParams);
+    const suppliers = db
+      .prepare(
+        `SELECT * FROM suppliers ${whereClause} ORDER BY name ASC LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset);
     return {
       data: suppliers,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalCount / limit),
-        totalCount: totalCount,
+        totalCount,
       },
     };
   } catch (error) {
-    console.error("Failed to get suppliers:", error);
     throw new Error(error.message);
   }
 });
@@ -442,20 +419,13 @@ ipcMain.handle("db:getSuppliers", (event, args) => {
 ipcMain.handle("db:createSupplier", (event, data) => {
   const { name, service_type, contact_person, email, phone, notes } = data;
   try {
-    const stmt = db.prepare(
-      "INSERT INTO suppliers (name, service_type, contact_person, email, phone, notes) VALUES (?, ?, ?, ?, ?, ?)"
-    );
-    const info = stmt.run(
-      name,
-      service_type,
-      contact_person,
-      email,
-      phone,
-      notes
-    );
+    const info = db
+      .prepare(
+        "INSERT INTO suppliers (name, service_type, contact_person, email, phone, notes) VALUES (?, ?, ?, ?, ?, ?)"
+      )
+      .run(name, service_type, contact_person, email, phone, notes);
     return { id: info.lastInsertRowid, ...data };
   } catch (error) {
-    console.error("Failed to create supplier:", error);
     throw new Error(error.message);
   }
 });
@@ -464,13 +434,11 @@ ipcMain.handle("db:updateSupplier", (event, args) => {
   const { id, data } = args;
   const { name, service_type, contact_person, email, phone, notes } = data;
   try {
-    const stmt = db.prepare(
+    db.prepare(
       "UPDATE suppliers SET name = ?, service_type = ?, contact_person = ?, email = ?, phone = ?, notes = ? WHERE id = ?"
-    );
-    stmt.run(name, service_type, contact_person, email, phone, notes, id);
+    ).run(name, service_type, contact_person, email, phone, notes, id);
     return { id, ...data };
   } catch (error) {
-    console.error("Failed to update supplier:", error);
     throw new Error(error.message);
   }
 });
@@ -480,21 +448,18 @@ ipcMain.handle("db:deleteSupplier", (event, id) => {
     db.prepare("DELETE FROM suppliers WHERE id = ?").run(id);
     return { success: true };
   } catch (error) {
-    console.error("Failed to delete supplier:", error);
     throw new Error(error.message);
   }
 });
 
 // --- App Lifecycle ---
-
 app.whenReady().then(() => {
   createWindow();
-
-  app.on("activate", function () {
+  app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-app.on("window-all-closed", function () {
+app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
