@@ -5,128 +5,103 @@ import Facturation from "./pages/Facturation.jsx";
 import Settings from "./pages/Settings.jsx";
 import Theme from "./pages/Theme.jsx";
 import Verification from "./pages/Verification.jsx";
-import Contacts from "./pages/Contacts.jsx"; // 1. IMPORT NEW PAGE
+import Contacts from "./pages/Contacts.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+import Finance from "./pages/Finance.jsx";
 import {
   Settings as SettingsIcon,
   FileText,
   Palette,
-  Users, // 2. IMPORT NEW ICON
+  Users,
+  LayoutDashboard,
+  CircleDollarSign,
 } from "lucide-react";
 
 const queryClient = new QueryClient();
-const STORAGE_KEY = "facturation-app-license"; // Key to check for verification
+const STORAGE_KEY = "facturation-app-license";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("facturation");
-
-  // --- New Verification State ---
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [isVerified, setIsVerified] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Loading state for check
+  const [isLoading, setIsLoading] = useState(true);
 
-  // --- Check for existing license on load ---
   useEffect(() => {
     try {
       const storedLicense = localStorage.getItem(STORAGE_KEY);
       if (storedLicense) {
-        const { valid } = JSON.parse(storedLicense); // This correctly reads {valid: true}
-        if (valid) {
-          setIsVerified(true);
-        }
+        const { valid } = JSON.parse(storedLicense);
+        if (valid) setIsVerified(true);
       }
-    } catch (error) {
-      console.error("Failed to parse stored license", error);
-      setIsVerified(false);
+    } catch (e) {
+      console.error(e);
     }
     setIsLoading(false);
   }, []);
 
-  // --- Show loading screen ---
-  if (isLoading) {
+  if (isLoading)
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div>Loading...</div>
+      <div className="flex h-screen w-full items-center justify-center">
+        Loading...
       </div>
     );
-  }
-
-  // --- Show Verification Page if not verified ---
-  if (!isVerified) {
+  if (!isVerified)
     return (
       <QueryClientProvider client={queryClient}>
         <Verification onSuccess={() => setIsVerified(true)} />
         <Toaster position="bottom-right" />
       </QueryClientProvider>
     );
-  }
 
-  // --- Show Main App if verified ---
+  const menuItems = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "finance", label: "Finance", icon: CircleDollarSign },
+    { id: "facturation", label: "Facturation", icon: FileText },
+    { id: "contacts", label: "Contacts", icon: Users },
+    { id: "settings", label: "Settings", icon: SettingsIcon },
+    { id: "theme", label: "Theme", icon: Palette },
+  ];
+
   return (
     <QueryClientProvider client={queryClient}>
-      {/* REMOVED TERNARY: The sidebar layout is now permanent */}
       <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
         <aside className="w-64 bg-white dark:bg-gray-800 shadow-md flex flex-col">
-          <div className="p-6 text-2xl font-bold text-blue-600 dark:text-blue-400">
+          <div className="p-6 text-2xl font-bold text-blue-600">
             Facturation Pro
           </div>
           <nav className="flex-1 px-4 space-y-2">
-            <button
-              onClick={() => setActiveTab("facturation")}
-              className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
-                activeTab === "facturation"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-              }`}
-            >
-              <FileText className="w-5 h-5 mr-3" />
-              Facturation
-            </button>
-            {/* 3. ADD NEW CONTACTS BUTTON */}
-            <button
-              onClick={() => setActiveTab("contacts")}
-              className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
-                activeTab === "contacts"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-              }`}
-            >
-              <Users className="w-5 h-5 mr-3" />
-              Contacts
-            </button>
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
-                activeTab === "settings"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-              }`}
-            >
-              <SettingsIcon className="w-5 h-5 mr-3" />
-              Settings
-            </button>
-            <button
-              onClick={() => setActiveTab("theme")}
-              className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
-                activeTab === "theme"
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
-              }`}
-            >
-              <Palette className="w-5 h-5 mr-3" />
-              Theme
-            </button>
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors ${
+                  activeTab === item.id
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <item.icon className="w-5 h-5 mr-3" />
+                {item.label}
+              </button>
+            ))}
           </nav>
         </aside>
 
-        {/* UPDATED MAIN: Removed 'p-8', as 'Theme' needs full-width.
-            Padding is now applied to Facturation and Settings individually.
-        */}
         <main className="flex-1 overflow-y-auto">
+          {activeTab === "dashboard" && (
+            <div className="p-8">
+              <Dashboard />
+            </div>
+          )}
+          {activeTab === "finance" && (
+            <div className="p-8">
+              <Finance />
+            </div>
+          )}
           {activeTab === "facturation" && (
             <div className="p-8">
               <Facturation />
             </div>
           )}
-          {/* 4. ADD NEW CONTACTS CONTENT */}
           {activeTab === "contacts" && (
             <div className="p-8">
               <Contacts />
@@ -137,7 +112,6 @@ export default function App() {
               <Settings />
             </div>
           )}
-          {/* ADDED THEME HERE */}
           {activeTab === "theme" && <Theme />}
         </main>
       </div>
