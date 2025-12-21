@@ -26,7 +26,7 @@ function createWindow() {
   mainWindow.loadURL(startUrl);
 }
 
-// --- IPC Handlers ---
+// --- IPC Handlers Registration ---
 
 // --- 1. FACTURATION ---
 ipcMain.handle("db:getFactures", (event, args) => {
@@ -52,9 +52,12 @@ ipcMain.handle("db:getFactures", (event, args) => {
     sortBy === "oldest" ? "ORDER BY createdAt ASC" : "ORDER BY createdAt DESC";
 
   try {
-    const { totalCount } = db
+    const countResult = db
       .prepare(`SELECT COUNT(*) as totalCount FROM factures ${whereClause}`)
       .get(...countParams);
+
+    const totalCount = countResult ? countResult.totalCount : 0;
+
     const factures = db
       .prepare(
         `SELECT * FROM factures ${whereClause} ${orderByClause} LIMIT ? OFFSET ?`
@@ -70,7 +73,8 @@ ipcMain.handle("db:getFactures", (event, args) => {
       },
     };
   } catch (error) {
-    throw new Error(error.message);
+    console.error("IPC db:getFactures error:", error);
+    throw error;
   }
 });
 
@@ -141,7 +145,7 @@ ipcMain.handle("db:createFacture", (event, data) => {
   } catch (error) {
     if (error.message.includes("UNIQUE"))
       throw new Error("This document number already exists.");
-    throw new Error(error.message);
+    throw error;
   }
 });
 
@@ -168,7 +172,7 @@ ipcMain.handle("db:updateFacture", (event, args) => {
     );
     return { id, ...data };
   } catch (error) {
-    throw new Error(error.message);
+    throw error;
   }
 });
 
@@ -177,7 +181,7 @@ ipcMain.handle("db:deleteFacture", (event, id) => {
     db.prepare("DELETE FROM factures WHERE id = ?").run(id);
     return { success: true };
   } catch (error) {
-    throw new Error(error.message);
+    throw error;
   }
 });
 
@@ -192,20 +196,24 @@ ipcMain.handle("db:getTransactions", (event, args) => {
     whereClause += " AND (description LIKE ? OR category LIKE ?)";
     params.push(`%${search}%`, `%${search}%`);
   }
-  if (type !== "all") {
+  if (type !== "all" && type !== undefined) {
     whereClause += " AND type = ?";
     params.push(type);
   }
 
   try {
-    const { totalCount } = db
+    const countResult = db
       .prepare(`SELECT COUNT(*) as totalCount FROM transactions ${whereClause}`)
       .get(...params);
+
+    const totalCount = countResult ? countResult.totalCount : 0;
+
     const data = db
       .prepare(
         `SELECT * FROM transactions ${whereClause} ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`
       )
       .all(...params, limit, offset);
+
     return {
       data,
       pagination: {
@@ -215,7 +223,8 @@ ipcMain.handle("db:getTransactions", (event, args) => {
       },
     };
   } catch (error) {
-    throw new Error(error.message);
+    console.error("IPC db:getTransactions error:", error);
+    throw error;
   }
 });
 
@@ -229,7 +238,26 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       .run(type, amount, description, category, date);
     return { id: info.lastInsertRowid, ...data };
   } catch (error) {
-    throw new Error(error.message);
+    throw error;
+  }
+});
+
+ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
+  try {
+    const stmt = db.prepare(
+      "UPDATE transactions SET type = ?, amount = ?, description = ?, category = ?, date = ? WHERE id = ?"
+    );
+    stmt.run(
+      data.type,
+      data.amount,
+      data.description,
+      data.category,
+      data.date,
+      id
+    );
+    return { id, ...data };
+  } catch (error) {
+    throw error;
   }
 });
 
@@ -238,7 +266,7 @@ ipcMain.handle("db:deleteTransaction", (event, id) => {
     db.prepare("DELETE FROM transactions WHERE id = ?").run(id);
     return { success: true };
   } catch (error) {
-    throw new Error(error.message);
+    throw error;
   }
 });
 
@@ -275,14 +303,16 @@ ipcMain.handle("db:getDashboardStats", (event, args) => {
 
     return {
       summary: {
-        income: stats.totalIncome || 0,
-        expense: stats.totalExpense || 0,
-        profit: (stats.totalIncome || 0) - (stats.totalExpense || 0),
+        income: stats ? stats.totalIncome || 0 : 0,
+        expense: stats ? stats.totalExpense || 0 : 0,
+        profit:
+          (stats ? stats.totalIncome || 0 : 0) -
+          (stats ? stats.totalExpense || 0 : 0),
       },
-      chartData,
+      chartData: chartData || [],
     };
   } catch (error) {
-    throw new Error(error.message);
+    throw error;
   }
 });
 
@@ -297,14 +327,19 @@ ipcMain.handle("db:getClients", (event, args) => {
     const term = `%${search}%`;
     params.push(term, term, term, term);
   }
-  const { totalCount } = db
+
+  const countResult = db
     .prepare(`SELECT COUNT(*) as totalCount FROM clients ${where}`)
     .get(...params);
+
+  const totalCount = countResult ? countResult.totalCount : 0;
+
   const data = db
     .prepare(
       `SELECT * FROM clients ${where} ORDER BY name ASC LIMIT ? OFFSET ?`
     )
     .all(...params, limit, offset);
+
   return {
     data,
     pagination: {
@@ -354,14 +389,19 @@ ipcMain.handle("db:getSuppliers", (event, args) => {
     const term = `%${search}%`;
     params.push(term, term, term);
   }
-  const { totalCount } = db
+
+  const countResult = db
     .prepare(`SELECT COUNT(*) as totalCount FROM suppliers ${where}`)
     .get(...params);
+
+  const totalCount = countResult ? countResult.totalCount : 0;
+
   const data = db
     .prepare(
       `SELECT * FROM suppliers ${where} ORDER BY name ASC LIMIT ? OFFSET ?`
     )
     .all(...params, limit, offset);
+
   return {
     data,
     pagination: {
@@ -452,6 +492,7 @@ ipcMain.handle("license:verify", async (event, { licenseCode }) => {
     );
     return await response.json();
   } catch (error) {
+    console.error("Verification error:", error);
     throw new Error("Verification service unreachable.");
   }
 });

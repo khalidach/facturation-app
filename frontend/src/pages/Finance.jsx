@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
   Trash2,
+  Edit2,
   ArrowUpCircle,
   ArrowDownCircle,
   Wallet,
@@ -17,6 +18,7 @@ export default function Finance() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("income"); // 'income' or 'expense'
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState(null); // Tracks transaction being edited
   const [txToDelete, setTxToDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -39,10 +41,27 @@ export default function Finance() {
     date: new Date().toISOString().split("T")[0],
   });
 
-  // Reset form type when tab changes or modal opens
+  // Effect to sync formData when editingTx changes or modal closes/opens
   useEffect(() => {
-    setFormData((prev) => ({ ...prev, type: activeTab }));
-  }, [activeTab, isModalOpen]);
+    if (editingTx) {
+      setFormData({
+        type: editingTx.type,
+        amount: editingTx.amount,
+        description: editingTx.description,
+        category: editingTx.category || "General",
+        date: editingTx.date,
+      });
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        type: activeTab,
+        amount: "",
+        description: "",
+        category: "General",
+        date: new Date().toISOString().split("T")[0],
+      }));
+    }
+  }, [editingTx, activeTab, isModalOpen]);
 
   const { data: txResponse, isLoading } = useQuery({
     queryKey: ["transactions", currentPage, activeTab, debouncedSearch],
@@ -55,22 +74,19 @@ export default function Finance() {
       }),
   });
 
-  const { mutate: addTx, isPending } = useMutation({
-    mutationFn: window.electronAPI.createTransaction,
+  const { mutate: saveTx, isPending } = useMutation({
+    mutationFn: (data) => {
+      if (editingTx) {
+        return window.electronAPI.updateTransaction(editingTx.id, data);
+      }
+      return window.electronAPI.createTransaction(data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
-      toast.success(
-        `${activeTab === "income" ? "Income" : "Expense"} recorded successfully`
-      );
+      toast.success(`Record ${editingTx ? "updated" : "saved"} successfully`);
       setIsModalOpen(false);
-      setFormData({
-        type: activeTab,
-        amount: "",
-        description: "",
-        category: "General",
-        date: new Date().toISOString().split("T")[0],
-      });
+      setEditingTx(null);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -86,6 +102,12 @@ export default function Finance() {
   });
 
   const handleOpenModal = () => {
+    setEditingTx(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditClick = (tx) => {
+    setEditingTx(tx);
     setIsModalOpen(true);
   };
 
@@ -174,7 +196,7 @@ export default function Finance() {
                 Amount
               </th>
               <th className="px-6 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Action
+                Actions
               </th>
             </tr>
           </thead>
@@ -227,12 +249,20 @@ export default function Finance() {
                     MAD
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => setTxToDelete(tx.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-center space-x-1">
+                      <button
+                        onClick={() => handleEditClick(tx)}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setTxToDelete(tx.id)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -251,16 +281,23 @@ export default function Finance() {
         )}
       </div>
 
-      {/* Add Modal */}
+      {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={`Record New ${activeTab === "income" ? "Income" : "Expense"}`}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTx(null);
+        }}
+        title={
+          editingTx
+            ? "Edit Financial Record"
+            : `Record New ${activeTab === "income" ? "Income" : "Expense"}`
+        }
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            addTx(formData);
+            saveTx(formData);
           }}
           className="space-y-5"
         >
@@ -349,7 +386,10 @@ export default function Finance() {
           <div className="flex justify-end gap-3 pt-4 border-t dark:border-gray-700">
             <button
               type="button"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                setIsModalOpen(false);
+                setEditingTx(null);
+              }}
               className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
@@ -358,12 +398,16 @@ export default function Finance() {
               type="submit"
               disabled={isPending}
               className={`px-6 py-2 text-white rounded-lg shadow-sm transition-all ${
-                activeTab === "income"
+                formData.type === "income"
                   ? "bg-green-600 hover:bg-green-700"
                   : "bg-red-600 hover:bg-red-700"
               }`}
             >
-              {isPending ? "Saving..." : `Save ${activeTab}`}
+              {isPending
+                ? "Saving..."
+                : editingTx
+                ? "Update Record"
+                : `Save ${activeTab}`}
             </button>
           </div>
         </form>
