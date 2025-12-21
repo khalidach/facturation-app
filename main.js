@@ -193,8 +193,9 @@ ipcMain.handle("db:getTransactions", (event, args) => {
   const params = [];
 
   if (search) {
-    whereClause += " AND (description LIKE ? OR category LIKE ?)";
-    params.push(`%${search}%`, `%${search}%`);
+    whereClause +=
+      " AND (description LIKE ? OR category LIKE ? OR contact_person LIKE ?)";
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
   if (type !== "all" && type !== undefined) {
     whereClause += " AND type = ?";
@@ -229,13 +230,13 @@ ipcMain.handle("db:getTransactions", (event, args) => {
 });
 
 ipcMain.handle("db:createTransaction", (event, data) => {
-  const { type, amount, description, category, date } = data;
+  const { type, amount, description, category, contact_person, date } = data;
   try {
     const info = db
       .prepare(
-        "INSERT INTO transactions (type, amount, description, category, date) VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO transactions (type, amount, description, category, contact_person, date) VALUES (?, ?, ?, ?, ?, ?)"
       )
-      .run(type, amount, description, category, date);
+      .run(type, amount, description, category, contact_person, date);
     return { id: info.lastInsertRowid, ...data };
   } catch (error) {
     throw error;
@@ -245,13 +246,14 @@ ipcMain.handle("db:createTransaction", (event, data) => {
 ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
   try {
     const stmt = db.prepare(
-      "UPDATE transactions SET type = ?, amount = ?, description = ?, category = ?, date = ? WHERE id = ?"
+      "UPDATE transactions SET type = ?, amount = ?, description = ?, category = ?, contact_person = ?, date = ? WHERE id = ?"
     );
     stmt.run(
       data.type,
       data.amount,
       data.description,
       data.category,
+      data.contact_person,
       data.date,
       id
     );

@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS theme (
 );
 `;
 
-// NEW: Transactions Table for Income/Expenses
+// Updated Transactions Table for Income/Expenses with contact_person
 const createTransactionsTable = `
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount REAL NOT NULL,
     description TEXT,
     category TEXT,
+    contact_person TEXT,
     date TEXT NOT NULL,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -133,6 +134,13 @@ const migrations = {
       CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
       CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
     `);
+  },
+  4: () => {
+    // Migration to add contact_person to transactions if it doesn't exist
+    const columns = db.prepare("PRAGMA table_info(transactions)").all();
+    if (!columns.some((col) => col.name === "contact_person")) {
+      db.exec("ALTER TABLE transactions ADD COLUMN contact_person TEXT");
+    }
   },
 };
 

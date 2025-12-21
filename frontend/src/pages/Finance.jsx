@@ -8,6 +8,7 @@ import {
   ArrowDownCircle,
   Wallet,
   Receipt,
+  Search,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Modal from "../components/Modal.jsx";
@@ -18,13 +19,17 @@ export default function Finance() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("income"); // 'income' or 'expense'
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTx, setEditingTx] = useState(null); // Tracks transaction being edited
+  const [editingTx, setEditingTx] = useState(null);
   const [txToDelete, setTxToDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // Debounce search
+  // Search state for contact person inside modal
+  const [contactSearch, setContactSearch] = useState("");
+  const [showContactList, setShowContactList] = useState(false);
+
+  // Debounce main search
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -38,10 +43,33 @@ export default function Finance() {
     amount: "",
     description: "",
     category: "General",
+    contact_person: "",
     date: new Date().toISOString().split("T")[0],
   });
 
-  // Effect to sync formData when editingTx changes or modal closes/opens
+  // Fetch contacts for the searchable dropdown
+  const { data: contactsData } = useQuery({
+    queryKey: ["contacts-search", activeTab, contactSearch],
+    queryFn: () => {
+      if (!isModalOpen) return null;
+      return activeTab === "income"
+        ? window.electronAPI.getClients({
+            page: 1,
+            limit: 10,
+            search: contactSearch,
+          })
+        : window.electronAPI.getSuppliers({
+            page: 1,
+            limit: 10,
+            search: contactSearch,
+          });
+    },
+    enabled: isModalOpen,
+  });
+
+  const contacts = contactsData?.data || [];
+
+  // Sync formData when editingTx changes or active tab changes
   useEffect(() => {
     if (editingTx) {
       setFormData({
@@ -49,18 +77,21 @@ export default function Finance() {
         amount: editingTx.amount,
         description: editingTx.description,
         category: editingTx.category || "General",
+        contact_person: editingTx.contact_person || "",
         date: editingTx.date,
       });
     } else {
       setFormData((prev) => ({
         ...prev,
-        type: activeTab,
+        type: activeTab, // Automatically set based on active tab
         amount: "",
         description: "",
         category: "General",
+        contact_person: "",
         date: new Date().toISOString().split("T")[0],
       }));
     }
+    setContactSearch("");
   }, [editingTx, activeTab, isModalOpen]);
 
   const { data: txResponse, isLoading } = useQuery({
@@ -110,6 +141,8 @@ export default function Finance() {
     setEditingTx(tx);
     setIsModalOpen(true);
   };
+
+  const contactLabel = activeTab === "income" ? "Client" : "Supplier";
 
   return (
     <div className="space-y-6">
@@ -170,7 +203,7 @@ export default function Finance() {
         <div className="relative flex-1">
           <input
             type="text"
-            placeholder={`Search ${activeTab}s by description...`}
+            placeholder={`Search ${activeTab}s by description, category or contact...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input w-full pl-4"
@@ -190,6 +223,9 @@ export default function Finance() {
                 Description
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                {activeTab === "income" ? "Client" : "Supplier"}
+              </th>
+              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Category
               </th>
               <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -203,13 +239,13 @@ export default function Finance() {
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {isLoading ? (
               <tr>
-                <td colSpan="5" className="text-center py-10 text-gray-500">
+                <td colSpan="6" className="text-center py-10 text-gray-500">
                   Loading data...
                 </td>
               </tr>
             ) : txResponse?.data.length === 0 ? (
               <tr>
-                <td colSpan="5" className="text-center py-20">
+                <td colSpan="6" className="text-center py-20">
                   <div className="flex flex-col items-center">
                     {activeTab === "income" ? (
                       <ArrowUpCircle className="w-12 h-12 text-gray-200 mb-2" />
@@ -233,6 +269,9 @@ export default function Finance() {
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                     {tx.description}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 italic">
+                    {tx.contact_person || "-"}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                     {tx.category}
@@ -304,21 +343,6 @@ export default function Finance() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
-                Type
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({ ...formData, type: e.target.value })
-                }
-                className="input"
-              >
-                <option value="income">Income (Cash In)</option>
-                <option value="expense">Expense (Cash Out)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
                 Amount (MAD)
               </label>
               <input
@@ -332,6 +356,48 @@ export default function Finance() {
                 className="input"
                 placeholder="0.00"
               />
+            </div>
+            <div className="relative">
+              <label className="block text-sm font-medium mb-1.5 text-gray-700 dark:text-gray-300">
+                {contactLabel} (Optional)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.contact_person}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      contact_person: e.target.value,
+                    });
+                    setContactSearch(e.target.value);
+                    setShowContactList(true);
+                  }}
+                  onFocus={() => setShowContactList(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowContactList(false), 200)
+                  }
+                  className="input pr-8"
+                  placeholder={`Search or type ${contactLabel.toLowerCase()}...`}
+                />
+                <Search className="absolute right-2.5 top-2.5 w-4 h-4 text-gray-400" />
+              </div>
+              {showContactList && contacts.length > 0 && (
+                <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl max-h-40 overflow-auto">
+                  {contacts.map((c) => (
+                    <li
+                      key={c.id}
+                      onClick={() => {
+                        setFormData({ ...formData, contact_person: c.name });
+                        setShowContactList(false);
+                      }}
+                      className="px-4 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer text-sm"
+                    >
+                      {c.name}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           <div>
