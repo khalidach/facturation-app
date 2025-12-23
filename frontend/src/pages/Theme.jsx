@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import { Save, Palette } from "lucide-react";
-import FacturePDF from "@/components/facturation/FacturePDF.jsx";
-import ThemeEditor from "@/components/theme/ThemeEditor.jsx";
+import { Save, Palette, RefreshCw } from "lucide-react";
+import FacturePDF from "../components/facturation/FacturePDF.jsx";
+import ThemeEditor from "../components/theme/ThemeEditor.jsx";
 
 // Default styles structure
 const initialStyles = {
@@ -209,11 +209,17 @@ export default function Theme() {
   };
 
   if (isLoading) {
-    return Nothing; // Return null or a minimal loader
+    return (
+      <div className="flex h-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="h-10 w-10 animate-spin text-blue-600" />
+          <p className="font-medium text-gray-500">Loading editor...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    // UPDATED: Changed 'h-screen' to 'h-full' to fit inside the <main> tag.
     <div className="flex h-full overflow-hidden">
       {/* Left Panel: Editor */}
       <aside className="w-1/3 bg-white dark:bg-gray-800 p-6 overflow-y-auto shadow-lg">
