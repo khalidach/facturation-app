@@ -82,14 +82,26 @@ CREATE TABLE IF NOT EXISTS theme (
 );
 `;
 
-// Updated Transactions Table for Income/Expenses with contact_person
-const createTransactionsTable = `
-CREATE TABLE IF NOT EXISTS transactions (
+// Dedicated table for Income
+const createIncomesTable = `
+CREATE TABLE IF NOT EXISTS incomes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL CHECK(type IN ('income', 'expense')),
     amount REAL NOT NULL,
     description TEXT,
-    category TEXT,
+    category TEXT DEFAULT 'General',
+    contact_person TEXT,
+    date TEXT NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+// Dedicated table for Expenses
+const createExpensesTable = `
+CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    amount REAL NOT NULL,
+    description TEXT,
+    category TEXT DEFAULT 'General',
     contact_person TEXT,
     date TEXT NOT NULL,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -101,20 +113,15 @@ db.exec(createSettingsTable);
 db.exec(createThemeTable);
 db.exec(createClientsTable);
 db.exec(createSuppliersTable);
-db.exec(createTransactionsTable);
+db.exec(createIncomesTable);
+db.exec(createExpensesTable);
 
 const migrations = {
   1: () => {
-    const tableCheck = db
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='factures'"
-      )
-      .get();
-    if (tableCheck) {
-      const columns = db.prepare("PRAGMA table_info(factures)").all();
-      if (!columns.some((col) => col.name === "facture_number_int")) {
-        db.exec("ALTER TABLE factures ADD COLUMN facture_number_int INTEGER");
-      }
+    // Original migration for factures
+    const columns = db.prepare("PRAGMA table_info(factures)").all();
+    if (!columns.some((col) => col.name === "facture_number_int")) {
+      db.exec("ALTER TABLE factures ADD COLUMN facture_number_int INTEGER");
     }
   },
   2: () => {
@@ -126,20 +133,42 @@ const migrations = {
       CREATE INDEX IF NOT EXISTS idx_clients_ice ON clients(ice);
       CREATE INDEX IF NOT EXISTS idx_suppliers_email ON suppliers(email);
       CREATE INDEX IF NOT EXISTS idx_suppliers_phone ON suppliers(phone);
-      CREATE INDEX IF NOT EXISTS idx_suppliers_service_type ON suppliers(service_type);
     `);
   },
   3: () => {
+    // Split and index for massive scalability
     db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
-      CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
+      CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes(date);
+      CREATE INDEX IF NOT EXISTS idx_incomes_contact ON incomes(contact_person);
+      CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
+      CREATE INDEX IF NOT EXISTS idx_expenses_contact ON expenses(contact_person);
     `);
   },
   4: () => {
-    // Migration to add contact_person to transactions if it doesn't exist
-    const columns = db.prepare("PRAGMA table_info(transactions)").all();
-    if (!columns.some((col) => col.name === "contact_person")) {
-      db.exec("ALTER TABLE transactions ADD COLUMN contact_person TEXT");
+    // Migration: Move data from old transactions table if it exists
+    try {
+      const tableCheck = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='transactions'"
+        )
+        .get();
+      if (tableCheck) {
+        db.transaction(() => {
+          db.exec(
+            "INSERT INTO incomes (amount, description, category, contact_person, date, createdAt) SELECT amount, description, category, contact_person, date, createdAt FROM transactions WHERE type = 'income'"
+          );
+          db.exec(
+            "INSERT INTO expenses (amount, description, category, contact_person, date, createdAt) SELECT amount, description, category, contact_person, date, createdAt FROM transactions WHERE type = 'expense'"
+          );
+          // Optionally drop the old table after verification
+          // db.exec("DROP TABLE transactions");
+        })();
+      }
+    } catch (e) {
+      console.warn(
+        "Migration 4 skipped or failed (transactions table might not exist):",
+        e.message
+      );
     }
   },
 };
@@ -155,16 +184,11 @@ function runMigrations() {
       .prepare("SELECT value FROM settings WHERE key = 'db_version'")
       .get();
     let currentVersion = row ? parseInt(row.value, 10) : 0;
-
     if (currentVersion >= LATEST_VERSION) return;
 
     db.transaction(() => {
       for (let v = currentVersion + 1; v <= LATEST_VERSION; v++) {
-        const migration = migrations[v];
-        if (migration) {
-          if (typeof migration === "function") migration();
-          else db.exec(migration);
-        }
+        if (migrations[v]) migrations[v]();
       }
       db.prepare(
         "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)"
@@ -176,5 +200,4 @@ function runMigrations() {
 }
 
 runMigrations();
-
 module.exports = db;

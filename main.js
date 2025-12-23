@@ -185,33 +185,33 @@ ipcMain.handle("db:deleteFacture", (event, id) => {
   }
 });
 
-// --- 2. TRANSACTIONS (Finance) ---
+// --- 2. REFACTORED TRANSACTIONS (Finance - Split Tables) ---
 ipcMain.handle("db:getTransactions", (event, args) => {
-  const { page = 1, limit = 10, search = "", type = "all" } = args;
+  const { page = 1, limit = 10, search = "", type = "income" } = args;
   const offset = (page - 1) * limit;
+
+  // Use explicit table selection based on type
+  const tableName = type === "expense" ? "expenses" : "incomes";
+
   let whereClause = "WHERE 1=1";
   const params = [];
 
   if (search) {
     whereClause +=
       " AND (description LIKE ? OR category LIKE ? OR contact_person LIKE ?)";
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-  }
-  if (type !== "all" && type !== undefined) {
-    whereClause += " AND type = ?";
-    params.push(type);
+    const likeTerm = `%${search}%`;
+    params.push(likeTerm, likeTerm, likeTerm);
   }
 
   try {
     const countResult = db
-      .prepare(`SELECT COUNT(*) as totalCount FROM transactions ${whereClause}`)
+      .prepare(`SELECT COUNT(*) as totalCount FROM ${tableName} ${whereClause}`)
       .get(...params);
-
     const totalCount = countResult ? countResult.totalCount : 0;
 
     const data = db
       .prepare(
-        `SELECT * FROM transactions ${whereClause} ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`
+        `SELECT * FROM ${tableName} ${whereClause} ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`
       )
       .all(...params, limit, offset);
 
@@ -224,19 +224,21 @@ ipcMain.handle("db:getTransactions", (event, args) => {
       },
     };
   } catch (error) {
-    console.error("IPC db:getTransactions error:", error);
+    console.error(`IPC db:getTransactions (${tableName}) error:`, error);
     throw error;
   }
 });
 
 ipcMain.handle("db:createTransaction", (event, data) => {
   const { type, amount, description, category, contact_person, date } = data;
+  const tableName = type === "expense" ? "expenses" : "incomes";
+
   try {
     const info = db
       .prepare(
-        "INSERT INTO transactions (type, amount, description, category, contact_person, date) VALUES (?, ?, ?, ?, ?, ?)"
+        `INSERT INTO ${tableName} (amount, description, category, contact_person, date) VALUES (?, ?, ?, ?, ?)`
       )
-      .run(type, amount, description, category, contact_person, date);
+      .run(amount, description, category, contact_person, date);
     return { id: info.lastInsertRowid, ...data };
   } catch (error) {
     throw error;
@@ -244,12 +246,13 @@ ipcMain.handle("db:createTransaction", (event, data) => {
 });
 
 ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
+  // Use the type provided in data to find the correct table
+  const tableName = data.type === "expense" ? "expenses" : "incomes";
   try {
     const stmt = db.prepare(
-      "UPDATE transactions SET type = ?, amount = ?, description = ?, category = ?, contact_person = ?, date = ? WHERE id = ?"
+      `UPDATE ${tableName} SET amount = ?, description = ?, category = ?, contact_person = ?, date = ? WHERE id = ?`
     );
     stmt.run(
-      data.type,
       data.amount,
       data.description,
       data.category,
@@ -263,57 +266,74 @@ ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
   }
 });
 
-ipcMain.handle("db:deleteTransaction", (event, id) => {
+ipcMain.handle("db:deleteTransaction", (event, { id, type }) => {
+  const tableName = type === "expense" ? "expenses" : "incomes";
   try {
-    db.prepare("DELETE FROM transactions WHERE id = ?").run(id);
+    db.prepare(`DELETE FROM ${tableName} WHERE id = ?`).run(id);
     return { success: true };
   } catch (error) {
     throw error;
   }
 });
 
-// --- 3. DASHBOARD ---
+// --- 3. DASHBOARD (Updated for split tables) ---
 ipcMain.handle("db:getDashboardStats", (event, args) => {
   const { startDate, endDate } = args;
   try {
-    const stats = db
+    // Query both tables for total summary
+    const incomeStats = db
       .prepare(
-        `
-      SELECT 
-        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as totalIncome,
-        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as totalExpense
-      FROM transactions 
-      WHERE date BETWEEN ? AND ?
-    `
+        "SELECT SUM(amount) as total FROM incomes WHERE date BETWEEN ? AND ?"
+      )
+      .get(startDate, endDate);
+    const expenseStats = db
+      .prepare(
+        "SELECT SUM(amount) as total FROM expenses WHERE date BETWEEN ? AND ?"
       )
       .get(startDate, endDate);
 
-    const chartData = db
+    const totalIncome = incomeStats?.total || 0;
+    const totalExpense = expenseStats?.total || 0;
+
+    // Aggregate time-series data from both tables
+    const rawIncome = db
       .prepare(
-        `
-      SELECT 
-        date,
-        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
-      FROM transactions 
-      WHERE date BETWEEN ? AND ?
-      GROUP BY date
-      ORDER BY date ASC
-    `
+        "SELECT date, SUM(amount) as val FROM incomes WHERE date BETWEEN ? AND ? GROUP BY date"
+      )
+      .all(startDate, endDate);
+    const rawExpense = db
+      .prepare(
+        "SELECT date, SUM(amount) as val FROM expenses WHERE date BETWEEN ? AND ? GROUP BY date"
       )
       .all(startDate, endDate);
 
+    // Merge logic for chart data
+    const dateMap = {};
+    rawIncome.forEach((d) => {
+      dateMap[d.date] = { date: d.date, income: d.val, expense: 0 };
+    });
+    rawExpense.forEach((d) => {
+      if (!dateMap[d.date]) {
+        dateMap[d.date] = { date: d.date, income: 0, expense: d.val };
+      } else {
+        dateMap[d.date].expense = d.val;
+      }
+    });
+
+    const chartData = Object.values(dateMap).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
     return {
       summary: {
-        income: stats ? stats.totalIncome || 0 : 0,
-        expense: stats ? stats.totalExpense || 0 : 0,
-        profit:
-          (stats ? stats.totalIncome || 0 : 0) -
-          (stats ? stats.totalExpense || 0 : 0),
+        income: totalIncome,
+        expense: totalExpense,
+        profit: totalIncome - totalExpense,
       },
-      chartData: chartData || [],
+      chartData,
     };
   } catch (error) {
+    console.error("Dashboard Stats Error:", error);
     throw error;
   }
 });
@@ -500,6 +520,11 @@ ipcMain.handle("license:verify", async (event, { licenseCode }) => {
 });
 
 app.whenReady().then(createWindow);
+
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
+});
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
