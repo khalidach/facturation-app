@@ -5,9 +5,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getTransactions: (args) => ipcRenderer.invoke("db:getTransactions", args),
   createTransaction: (data) => ipcRenderer.invoke("db:createTransaction", data),
   updateTransaction: (id, data) =>
-    ipcRenderer.invoke("db:updateTransaction", { id, data }), // ADDED
+    ipcRenderer.invoke("db:updateTransaction", { id, data }),
   deleteTransaction: (id) => ipcRenderer.invoke("db:deleteTransaction", id),
   getDashboardStats: (args) => ipcRenderer.invoke("db:getDashboardStats", args),
+
+  // Treasury & Transfers
+  getTreasuryStats: () => ipcRenderer.invoke("db:getTreasuryStats"),
+  createTransfer: (data) => ipcRenderer.invoke("db:createTransfer", data),
+  getTransfers: (args) => ipcRenderer.invoke("db:getTransfers", args),
 
   // Facturation
   getFactures: (args) => ipcRenderer.invoke("db:getFactures", args),

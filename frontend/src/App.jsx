@@ -8,6 +8,7 @@ import Verification from "./pages/Verification.jsx";
 import Contacts from "./pages/Contacts.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Finance from "./pages/Finance.jsx";
+import Treasury from "./pages/Treasury.jsx";
 import {
   Settings as SettingsIcon,
   FileText,
@@ -15,6 +16,7 @@ import {
   Users,
   LayoutDashboard,
   CircleDollarSign,
+  Landmark,
 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -40,10 +42,11 @@ export default function App() {
 
   if (isLoading)
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-screen items-center justify-center">
         Loading...
       </div>
     );
+
   if (!isVerified)
     return (
       <QueryClientProvider client={queryClient}>
@@ -54,6 +57,7 @@ export default function App() {
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "treasury", label: "Treasury", icon: Landmark },
     { id: "finance", label: "Finance", icon: CircleDollarSign },
     { id: "facturation", label: "Facturation", icon: FileText },
     { id: "contacts", label: "Contacts", icon: Users },
@@ -65,7 +69,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
         <aside className="w-64 bg-white dark:bg-gray-800 shadow-md flex flex-col">
-          <div className="p-6 text-2xl font-bold text-blue-600">
+          <div className="p-6 text-2xl font-black text-blue-600">
             Facturation Pro
           </div>
           <nav className="flex-1 px-4 space-y-2">
@@ -73,10 +77,10 @@ export default function App() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors ${
+                className={`flex items-center w-full px-4 py-3 text-left rounded-xl font-bold transition-all ${
                   activeTab === item.id
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                 }`}
               >
                 <item.icon className="w-5 h-5 mr-3" />
@@ -87,32 +91,15 @@ export default function App() {
         </aside>
 
         <main className="flex-1 overflow-y-auto">
-          {activeTab === "dashboard" && (
-            <div className="p-8">
-              <Dashboard />
-            </div>
-          )}
-          {activeTab === "finance" && (
-            <div className="p-8">
-              <Finance />
-            </div>
-          )}
-          {activeTab === "facturation" && (
-            <div className="p-8">
-              <Facturation />
-            </div>
-          )}
-          {activeTab === "contacts" && (
-            <div className="p-8">
-              <Contacts />
-            </div>
-          )}
-          {activeTab === "settings" && (
-            <div className="p-8">
-              <Settings />
-            </div>
-          )}
-          {activeTab === "theme" && <Theme />}
+          <div className="p-8">
+            {activeTab === "dashboard" && <Dashboard />}
+            {activeTab === "treasury" && <Treasury />}
+            {activeTab === "finance" && <Finance />}
+            {activeTab === "facturation" && <Facturation />}
+            {activeTab === "contacts" && <Contacts />}
+            {activeTab === "settings" && <Settings />}
+            {activeTab === "theme" && <Theme />}
+          </div>
         </main>
       </div>
       <Toaster position="bottom-right" />
