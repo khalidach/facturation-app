@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { ShieldCheck, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
+import {
+  ShieldCheck,
+  ShieldAlert,
+  CheckCircle,
+  XCircle,
+  Globe,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 
 // localStorage keys
 const STORAGE_KEY = "facturation-app-license";
-// MACHINE_ID_KEY is no longer needed.
-// const MACHINE_ID_KEY = "facturation-app-machine-id";
 
-// Accept 'onSuccess' prop from App.jsx
 export default function Verification({ onSuccess }) {
   const [licenseCode, setLicenseCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,39 +21,39 @@ export default function Verification({ onSuccess }) {
   });
 
   const handleVerify = async () => {
+    // 1. DEFENSIVE CHECK: Ensure we are inside Electron
+    if (!window.electronAPI) {
+      setVerificationStatus({
+        checked: true,
+        valid: false,
+        message:
+          "Critical Error: Electron Bridge not found. Please launch the application via the desktop launcher, not a web browser.",
+      });
+      toast.error("Environment mismatch detected.");
+      return;
+    }
+
     setIsLoading(true);
     setVerificationStatus({ checked: false, valid: false, message: "" });
 
     try {
-      // --- THIS IS THE FIX ---
-      // 1. All machineId logic is removed from here.
-      // We no longer get/set it in localStorage or generate a UUID.
-
-      // 2. Call the main process via IPC, sending *only* the license code.
-      // The 'licenseVerify' function in preload.js now only takes one argument.
+      // 2. CALL THE API
       const data = await window.electronAPI.licenseVerify(licenseCode.trim());
-      // --- END OF FIX ---
 
-      // 3. Check the response from the main process
       if (data.success) {
-        // SUCCESS
         setVerificationStatus({
           checked: true,
           valid: true,
-          message: data.message, // Use the success message from server
+          message: data.message,
         });
-        localStorage.setItem(
-          STORAGE_KEY,
-          // We only store validity. The code itself is not needed here.
-          JSON.stringify({ valid: true })
-        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ valid: true }));
         toast.success(data.message || "Application activated!");
 
         if (onSuccess) {
-          onSuccess();
+          // Delay success transition slightly for UX
+          setTimeout(onSuccess, 1500);
         }
       } else {
-        // FAIL
         setVerificationStatus({
           checked: true,
           valid: false,
@@ -59,20 +62,22 @@ export default function Verification({ onSuccess }) {
         toast.error(data.message || "Invalid license code.");
       }
     } catch (error) {
-      // CATCH (Catches errors from main.js)
       console.error("Verification error:", error);
       setVerificationStatus({
         checked: true,
         valid: false,
-        message: error.message,
+        message: `Connection Error: ${error.message}`,
       });
-      toast.error(error.message);
+      toast.error("Failed to reach verification server.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const getStatusIcon = () => {
+    if (!window.electronAPI) {
+      return <Globe className="w-16 h-16 text-rose-500 animate-pulse" />;
+    }
     if (!verificationStatus.checked) {
       return (
         <ShieldAlert className="w-16 h-16 text-yellow-500 dark:text-yellow-400" />
@@ -87,6 +92,9 @@ export default function Verification({ onSuccess }) {
   };
 
   const getStatusMessage = () => {
+    if (!window.electronAPI) {
+      return "Environment Error: This application must be run inside its Electron container to access system security features.";
+    }
     if (verificationStatus.message) {
       return verificationStatus.message;
     }
@@ -95,32 +103,48 @@ export default function Verification({ onSuccess }) {
 
   return (
     <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900 p-4">
-      <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 max-w-2xl w-full mx-auto text-center">
-        <div className="flex justify-center mb-6">{getStatusIcon()}</div>
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
-          License Status
+      <div className="bg-white dark:bg-gray-800 p-10 rounded-[2.5rem] shadow-2xl border border-gray-100 dark:border-gray-700 max-w-lg w-full mx-auto text-center">
+        <div className="flex justify-center mb-8">{getStatusIcon()}</div>
+
+        <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3 tracking-tight">
+          System Activation
         </h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+
+        <p
+          className={`text-sm font-medium mb-8 leading-relaxed ${
+            !window.electronAPI
+              ? "text-rose-600"
+              : "text-gray-500 dark:text-gray-400"
+          }`}
+        >
           {getStatusMessage()}
         </p>
 
-        {!verificationStatus.valid && (
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              value={licenseCode}
-              onChange={(e) => setLicenseCode(e.target.value)}
-              placeholder="Enter license code..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-            />
+        {window.electronAPI && !verificationStatus.valid && (
+          <div className="space-y-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={licenseCode}
+                onChange={(e) => setLicenseCode(e.target.value)}
+                placeholder="XXXX-XXXX-XXXX-XXXX"
+                className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-2 border-transparent rounded-2xl dark:text-white focus:border-blue-500 focus:bg-white outline-none transition-all font-mono text-center tracking-widest"
+              />
+            </div>
             <button
               onClick={handleVerify}
-              disabled={isLoading}
-              className="inline-flex items-center justify-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm disabled:bg-gray-400"
+              disabled={isLoading || !licenseCode.trim()}
+              className="w-full flex items-center justify-center px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 shadow-xl shadow-blue-500/20 disabled:bg-gray-300 disabled:shadow-none transition-all active:scale-95"
             >
-              <ShieldCheck className="w-5 h-5 mr-2" />
-              {isLoading ? "Verifying..." : "Verify"}
+              <ShieldCheck className="w-6 h-6 mr-2" />
+              {isLoading ? "Verifying Authority..." : "Activate Now"}
             </button>
+          </div>
+        )}
+
+        {!window.electronAPI && (
+          <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl text-rose-700 dark:text-rose-400 text-xs font-bold uppercase tracking-widest">
+            Desktop Container Required
           </div>
         )}
       </div>
