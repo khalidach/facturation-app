@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus,
@@ -13,11 +13,76 @@ import {
   Banknote,
   Landmark,
   CheckSquare,
+  User,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-import Modal from "../components/Modal.jsx";
-import ConfirmationModal from "../components/modal/ConfirmationModal.jsx";
-import PaginationControls from "../components/PaginationControls.jsx";
+
+/**
+ * INTERNAL UI COMPONENTS
+ * Consolidated here to ensure compilation and preview stability.
+ */
+
+const InternalModal = ({ isOpen, onClose, title, children, size = "md" }) => {
+  if (!isOpen) return null;
+  const sizeClasses = {
+    sm: "sm:max-w-lg",
+    md: "sm:max-w-xl",
+    lg: "sm:max-w-3xl",
+    xl: "sm:max-w-5xl",
+  };
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 overflow-y-auto h-full w-full z-50 flex items-start justify-center pt-20 px-4">
+      <div
+        className={`relative bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full border border-gray-100 dark:border-gray-700 overflow-hidden ${sizeClasses[size]} animate-in fade-in zoom-in duration-200`}
+      >
+        <div className="flex justify-between items-center p-6 border-b border-gray-50 dark:border-gray-700">
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6 text-gray-400" />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+};
+
+const InternalPagination = ({ currentPage, totalPages, onPageChange }) => {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between py-4">
+      <button
+        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+        disabled={currentPage === 1}
+        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-all"
+      >
+        <ChevronLeft className="w-4 h-4" /> Previous
+      </button>
+      <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
+        Page {currentPage} / {totalPages}
+      </span>
+      <button
+        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+        disabled={currentPage === totalPages}
+        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-all"
+      >
+        Next <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+};
+
+/**
+ * MAIN FINANCE PAGE COMPONENT
+ */
 
 export default function Finance() {
   const queryClient = useQueryClient();
@@ -29,7 +94,8 @@ export default function Finance() {
   const [editingTx, setEditingTx] = useState(null);
   const [txToDelete, setTxToDelete] = useState(null);
   const [contactSearch, setContactSearch] = useState("");
-  const [showContactList, setShowContactList] = useState(false);
+  const [showContactDropdown, setShowContactDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
   const [formData, setFormData] = useState({
     type: "income",
@@ -43,6 +109,18 @@ export default function Finance() {
     in_bank: false,
   });
 
+  // Handle outside click for contact dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowContactDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -51,6 +129,7 @@ export default function Finance() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
+  // Fetch Transactions
   const { data: txResponse, isLoading } = useQuery({
     queryKey: ["transactions", currentPage, activeTab, debouncedSearch],
     queryFn: () =>
@@ -60,24 +139,25 @@ export default function Finance() {
         type: activeTab,
         search: debouncedSearch,
       }),
-    placeholderData: (p) => p,
   });
 
+  // Fetch Contacts for linking
   const { data: contactsData } = useQuery({
     queryKey: ["contacts-search", activeTab, contactSearch],
     queryFn: () => {
-      if (!isModalOpen) return null;
+      if (!isModalOpen || !contactSearch) return { data: [] };
       const api =
         activeTab === "income"
           ? window.electronAPI.getClients
           : window.electronAPI.getSuppliers;
       return api({ page: 1, limit: 10, search: contactSearch });
     },
-    enabled: isModalOpen,
+    enabled: isModalOpen && contactSearch.length > 0,
   });
 
   const contacts = contactsData?.data || [];
 
+  // Initialize form for Create/Edit
   useEffect(() => {
     if (editingTx) {
       setFormData({
@@ -91,6 +171,7 @@ export default function Finance() {
         is_cashed: editingTx.is_cashed === 1,
         in_bank: editingTx.in_bank === 1,
       });
+      setContactSearch(editingTx.contact_person || "");
     } else {
       setFormData((prev) => ({
         ...prev,
@@ -104,6 +185,7 @@ export default function Finance() {
         is_cashed: true,
         in_bank: false,
       }));
+      setContactSearch("");
     }
   }, [editingTx, activeTab, isModalOpen]);
 
@@ -147,169 +229,218 @@ export default function Finance() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            Financial Records
+          <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">
+            Finance
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Track payments and manage cash flow.
-          </p>
+          <div className="flex items-center mt-2 text-gray-500 font-medium">
+            <Receipt className="w-4 h-4 mr-2" />
+            Track every movement • Cash flow control
+          </div>
         </div>
+
         <button
           onClick={() => {
             setEditingTx(null);
             setIsModalOpen(true);
           }}
-          className="btn-primary"
+          className={`flex items-center justify-center px-8 py-4 rounded-[1.5rem] font-black text-white transition-all shadow-xl hover:scale-[1.02] active:scale-[0.98] ${
+            activeTab === "income"
+              ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
+              : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"
+          }`}
         >
-          <Plus className="w-5 h-5 mr-2" /> New{" "}
-          {activeTab === "income" ? "Income" : "Expense"}
+          <Plus className="w-6 h-6 mr-2" />
+          <span>New {activeTab === "income" ? "Income" : "Expense"}</span>
         </button>
       </div>
 
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8">
+      {/* Navigation & Search */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="inline-flex p-1.5 bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-md rounded-2xl border border-gray-100 dark:border-gray-700">
           <button
             onClick={() => setActiveTab("income")}
-            className={`tab-btn ${
-              activeTab === "income" ? "active-tab-green" : ""
+            className={`flex items-center px-8 py-3 rounded-xl text-sm font-black transition-all ${
+              activeTab === "income"
+                ? "bg-white dark:bg-gray-700 text-emerald-600 shadow-lg"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            <ArrowUpCircle className="w-4 h-4 mr-2" /> Incomes
+            <ArrowUpCircle className="w-4 h-4 mr-2" />
+            Incomes
           </button>
           <button
             onClick={() => setActiveTab("expense")}
-            className={`tab-btn ${
-              activeTab === "expense" ? "active-tab-red" : ""
+            className={`flex items-center px-8 py-3 rounded-xl text-sm font-black transition-all ${
+              activeTab === "expense"
+                ? "bg-white dark:bg-gray-700 text-rose-600 shadow-lg"
+                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
             }`}
           >
-            <ArrowDownCircle className="w-4 h-4 mr-2" /> Expenses
+            <ArrowDownCircle className="w-4 h-4 mr-2" />
+            Expenses
           </button>
-        </nav>
+        </div>
+
+        <div className="relative flex-1 max-w-xl group">
+          <input
+            type="text"
+            placeholder="Search transactions..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-12 pr-6 py-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+          />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+        </div>
       </div>
 
-      <div className="relative flex-1 group">
-        <input
-          type="text"
-          placeholder="Search..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="input w-full pl-10"
-        />
-        <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-400" />
-      </div>
-
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 dark:bg-gray-700/50">
-            <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              <th className="px-6 py-4">Date</th>
-              <th className="px-6 py-4">Description</th>
-              <th className="px-6 py-4">Payment</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-right">Amount</th>
-              <th className="px-6 py-4 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y dark:divide-gray-700">
-            {txResponse?.data.map((tx) => (
-              <tr
-                key={tx.id}
-                className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group"
-              >
-                <td className="px-6 py-4 text-sm">
-                  {new Date(tx.date).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4">
-                  <div className="font-medium text-gray-900 dark:text-white">
-                    {tx.description}
-                  </div>
-                  <div className="text-xs text-gray-400 italic">
-                    {tx.contact_person || "-"}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center text-sm gap-2 capitalize">
-                    {getPaymentIcon(tx.payment_method)}
-                    {tx.payment_method}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  {tx.payment_method === "cheque" ? (
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        tx.is_cashed
-                          ? "bg-green-100 text-green-700"
-                          : "bg-yellow-100 text-yellow-700"
+      {/* Data Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-gray-50 dark:bg-gray-700/30">
+              <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <th className="px-8 py-6">Execution Date</th>
+                <th className="px-8 py-6">Description & Contact</th>
+                <th className="px-8 py-6">Method</th>
+                <th className="px-8 py-6">Status</th>
+                <th className="px-8 py-6 text-right">Amount</th>
+                <th className="px-8 py-6 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+              {isLoading ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-8 py-20 text-center font-bold text-gray-400 animate-pulse"
+                  >
+                    Loading data...
+                  </td>
+                </tr>
+              ) : txResponse?.data.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-8 py-20 text-center">
+                    <Receipt className="w-16 h-16 text-gray-100 dark:text-gray-700 mx-auto mb-4" />
+                    <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
+                      No movements found
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                txResponse?.data.map((tx) => (
+                  <tr
+                    key={tx.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-all group"
+                  >
+                    <td className="px-8 py-6 text-sm font-black text-gray-400">
+                      {new Date(tx.date).toLocaleDateString(undefined, {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="font-black text-gray-900 dark:text-white leading-tight">
+                        {tx.description}
+                      </div>
+                      <div className="flex items-center text-[10px] font-black text-blue-500 uppercase mt-1">
+                        <User className="w-3 h-3 mr-1" />
+                        {tx.contact_person || "Direct Transaction"}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-xl text-[10px] font-black uppercase text-gray-600 dark:text-gray-300">
+                        {getPaymentIcon(tx.payment_method)}
+                        {tx.payment_method}
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      {tx.payment_method === "cheque" ? (
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
+                            tx.is_cashed
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          }`}
+                        >
+                          {tx.is_cashed ? "Cleared" : "In Progress"}
+                        </span>
+                      ) : (
+                        <span className="text-gray-200 dark:text-gray-700">
+                          —
+                        </span>
+                      )}
+                    </td>
+                    <td
+                      className={`px-8 py-6 text-lg text-right font-black ${
+                        activeTab === "income"
+                          ? "text-emerald-600"
+                          : "text-rose-600"
                       }`}
                     >
-                      {tx.is_cashed ? "CASHED" : "PENDING"}
-                    </span>
-                  ) : (
-                    <span className="text-gray-300 text-[10px]">—</span>
-                  )}
-                </td>
-                <td
-                  className={`px-6 py-4 text-sm text-right font-bold ${
-                    activeTab === "income" ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {tx.amount.toLocaleString()} MAD
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="flex justify-center space-x-1">
-                    <button
-                      onClick={() => {
-                        setEditingTx(tx);
-                        setIsModalOpen(true);
-                      }}
-                      className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setTxToDelete(tx.id)}
-                      className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {txResponse?.pagination.totalPages > 1 && (
-          <div className="p-4 border-t">
-            <PaginationControls
+                      {tx.amount.toLocaleString()}{" "}
+                      <span className="text-[10px] opacity-50">MAD</span>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="flex justify-center items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingTx(tx);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-2xl transition-all"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setTxToDelete(tx.id)}
+                          className="p-3 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          <div className="px-8">
+            <InternalPagination
               currentPage={currentPage}
-              totalPages={txResponse.pagination.totalPages}
+              totalPages={txResponse?.pagination.totalPages || 1}
               onPageChange={setCurrentPage}
             />
           </div>
-        )}
+        </div>
       </div>
 
-      <Modal
+      {/* Transaction Modal */}
+      <InternalModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setEditingTx(null);
         }}
-        title={editingTx ? "Edit Entry" : "New Entry"}
+        title={editingTx ? `Update ${activeTab}` : `New ${activeTab}`}
+        size="lg"
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
             saveTx(formData);
           }}
-          className="space-y-4"
+          className="space-y-8"
         >
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Amount (MAD)</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                Volume (Amount MAD)
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -318,11 +449,14 @@ export default function Finance() {
                 onChange={(e) =>
                   setFormData({ ...formData, amount: e.target.value })
                 }
-                className="input"
+                className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all text-xl font-black"
+                placeholder="0.00"
               />
             </div>
-            <div>
-              <label className="label">Date</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                Effective Date
+              </label>
               <input
                 type="date"
                 required
@@ -330,12 +464,15 @@ export default function Finance() {
                 onChange={(e) =>
                   setFormData({ ...formData, date: e.target.value })
                 }
-                className="input"
+                className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
               />
             </div>
           </div>
-          <div>
-            <label className="label">Description</label>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+              Label / Description
+            </label>
             <input
               type="text"
               required
@@ -343,97 +480,182 @@ export default function Finance() {
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
               }
-              className="input"
+              className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
+              placeholder="Ex: Facture N°..."
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Payment Method</label>
-              <select
-                value={formData.payment_method}
-                onChange={(e) =>
-                  setFormData({ ...formData, payment_method: e.target.value })
-                }
-                className="input"
-              >
-                <option value="cash">Cash (Caisse)</option>
-                <option value="virement">Virement (Bank)</option>
-                <option value="cheque">Chèque (Bank)</option>
-                <option value="versement">Versement (Bank)</option>
-              </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="relative space-y-2" ref={dropdownRef}>
+              <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                Linked {activeTab === "income" ? "Client" : "Supplier"}
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={contactSearch}
+                  onChange={(e) => {
+                    setContactSearch(e.target.value);
+                    setFormData({
+                      ...formData,
+                      contact_person: e.target.value,
+                    });
+                    setShowContactDropdown(true);
+                  }}
+                  onFocus={() => setShowContactDropdown(true)}
+                  placeholder={`Search database...`}
+                  className="w-full pl-12 pr-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
+                />
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              </div>
+
+              {showContactDropdown && contacts.length > 0 && (
+                <div className="absolute z-30 w-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-h-56 overflow-y-auto animate-in slide-in-from-top-2">
+                  {contacts.map((contact) => (
+                    <button
+                      key={contact.id}
+                      type="button"
+                      onClick={() => {
+                        setContactSearch(contact.name);
+                        setFormData({
+                          ...formData,
+                          contact_person: contact.name,
+                        });
+                        setShowContactDropdown(false);
+                      }}
+                      className="w-full px-6 py-4 text-left text-sm font-black hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-50 dark:border-gray-700 last:border-0 transition-colors"
+                    >
+                      {contact.name}
+                      <span className="block text-[9px] text-gray-400 font-bold uppercase mt-0.5">
+                        {contact.ice ||
+                          contact.service_type ||
+                          "Database Record"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div>
-              <label className="label">Category</label>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                Category / Tag
+              </label>
               <input
                 type="text"
                 value={formData.category}
                 onChange={(e) =>
                   setFormData({ ...formData, category: e.target.value })
                 }
-                className="input"
+                className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
+                placeholder="Ex: Logistique, Vente..."
               />
             </div>
           </div>
 
-          {formData.payment_method === "cheque" && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl flex items-center justify-between">
-              <span className="text-sm font-semibold">Check Status</span>
-              <div className="flex gap-4">
-                <label className="flex items-center cursor-pointer">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                Payment Protocol
+              </label>
+              <select
+                value={formData.payment_method}
+                onChange={(e) =>
+                  setFormData({ ...formData, payment_method: e.target.value })
+                }
+                className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-black"
+              >
+                <option value="cash">Cash (Physical)</option>
+                <option value="virement">Transfer (Bank)</option>
+                <option value="cheque">Check (Bank)</option>
+                <option value="versement">Deposit (Bank)</option>
+              </select>
+            </div>
+            {formData.payment_method === "cheque" && (
+              <div className="flex items-center gap-8 bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl px-6">
+                <label className="flex items-center cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={formData.is_cashed}
                     onChange={(e) =>
                       setFormData({ ...formData, is_cashed: e.target.checked })
                     }
-                    className="mr-2"
+                    className="w-5 h-5 rounded-lg text-emerald-600 focus:ring-emerald-500 mr-2 border-gray-300 transition-all"
                   />
-                  <span className="text-sm">Is Cashed?</span>
+                  <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-emerald-600 transition-colors">
+                    Cashed
+                  </span>
                 </label>
-                <label className="flex items-center cursor-pointer">
+                <label className="flex items-center cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={formData.in_bank}
                     onChange={(e) =>
                       setFormData({ ...formData, in_bank: e.target.checked })
                     }
-                    className="mr-2"
+                    className="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500 mr-2 border-gray-300 transition-all"
                   />
-                  <span className="text-sm">In Bank?</span>
+                  <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">
+                    Banked
+                  </span>
                 </label>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-4 pt-6">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 border rounded-lg"
+              className="px-8 py-4 rounded-2xl font-black text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-sm uppercase tracking-widest"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className={`px-6 py-2 text-white rounded-lg ${
-                activeTab === "income" ? "bg-green-600" : "bg-red-600"
+              className={`px-10 py-4 rounded-2xl font-black text-white shadow-2xl transition-all active:scale-95 ${
+                activeTab === "income"
+                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
+                  : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"
               }`}
             >
-              {isPending ? "Saving..." : "Save Entry"}
+              {isPending
+                ? "Updating..."
+                : editingTx
+                ? "Update Ledger"
+                : "Register Movement"}
             </button>
           </div>
         </form>
-      </Modal>
+      </InternalModal>
 
-      <ConfirmationModal
+      {/* Delete Confirmation */}
+      <InternalModal
         isOpen={!!txToDelete}
         onClose={() => setTxToDelete(null)}
-        onConfirm={() => deleteTx(txToDelete)}
-        title="Delete Record"
-        message="Permanent removal. Proceed?"
-      />
+        title="Delete Movement"
+      >
+        <div className="space-y-6">
+          <p className="text-gray-600 dark:text-gray-300 font-bold leading-relaxed">
+            This action will permanently remove this entry from your financial
+            ledger and treasury calculations.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setTxToDelete(null)}
+              className="px-6 py-3 rounded-xl font-bold text-gray-500"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => deleteTx(txToDelete)}
+              className="px-6 py-3 bg-rose-600 text-white rounded-xl font-black shadow-lg shadow-rose-500/20 hover:bg-rose-700"
+            >
+              Confirm Deletion
+            </button>
+          </div>
+        </div>
+      </InternalModal>
     </div>
   );
 }
