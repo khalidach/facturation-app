@@ -6,7 +6,6 @@ import {
   Edit2,
   ArrowUpCircle,
   ArrowDownCircle,
-  Wallet,
   Receipt,
   Search,
   CreditCard,
@@ -21,8 +20,8 @@ import {
 import { toast } from "react-hot-toast";
 
 /**
- * INTERNAL UI COMPONENTS
- * Consolidated here to ensure compilation and preview stability.
+ * COMPOSANTS UI INTERNES
+ * Consolidés ici pour assurer la compilation et la stabilité de l'aperçu.
  */
 
 const InternalModal = ({ isOpen, onClose, title, children, size = "md" }) => {
@@ -64,7 +63,7 @@ const InternalPagination = ({ currentPage, totalPages, onPageChange }) => {
         disabled={currentPage === 1}
         className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-all"
       >
-        <ChevronLeft className="w-4 h-4" /> Previous
+        <ChevronLeft className="w-4 h-4" /> Précédent
       </button>
       <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
         Page {currentPage} / {totalPages}
@@ -74,14 +73,14 @@ const InternalPagination = ({ currentPage, totalPages, onPageChange }) => {
         disabled={currentPage === totalPages}
         className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-50 transition-all"
       >
-        Next <ChevronRight className="w-4 h-4" />
+        Suivant <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   );
 };
 
 /**
- * MAIN FINANCE PAGE COMPONENT
+ * COMPOSANT PRINCIPAL DE LA PAGE FINANCE
  */
 
 export default function Finance() {
@@ -101,7 +100,7 @@ export default function Finance() {
     type: "income",
     amount: "",
     description: "",
-    category: "General",
+    category: "Général",
     contact_person: "",
     date: new Date().toISOString().split("T")[0],
     payment_method: "cash",
@@ -109,7 +108,7 @@ export default function Finance() {
     in_bank: false,
   });
 
-  // Handle outside click for contact dropdown
+  // Gérer le clic à l'extérieur pour le menu déroulant des contacts
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -120,7 +119,7 @@ export default function Finance() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Debounce search
+  // Débounce de la recherche
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -129,7 +128,7 @@ export default function Finance() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch Transactions
+  // Récupérer les Transactions
   const { data: txResponse, isLoading } = useQuery({
     queryKey: ["transactions", currentPage, activeTab, debouncedSearch],
     queryFn: () =>
@@ -141,7 +140,7 @@ export default function Finance() {
       }),
   });
 
-  // Fetch Contacts for linking
+  // Récupérer les Contacts pour la liaison
   const { data: contactsData } = useQuery({
     queryKey: ["contacts-search", activeTab, contactSearch],
     queryFn: () => {
@@ -157,14 +156,14 @@ export default function Finance() {
 
   const contacts = contactsData?.data || [];
 
-  // Initialize form for Create/Edit
+  // Initialiser le formulaire pour Créer/Modifier
   useEffect(() => {
     if (editingTx) {
       setFormData({
         type: activeTab,
         amount: editingTx.amount,
         description: editingTx.description,
-        category: editingTx.category || "General",
+        category: editingTx.category || "Général",
         contact_person: editingTx.contact_person || "",
         date: editingTx.date,
         payment_method: editingTx.payment_method || "cash",
@@ -178,7 +177,7 @@ export default function Finance() {
         type: activeTab,
         amount: "",
         description: "",
-        category: "General",
+        category: "Général",
         contact_person: "",
         date: new Date().toISOString().split("T")[0],
         payment_method: "cash",
@@ -197,7 +196,9 @@ export default function Finance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
-      toast.success(`Record ${editingTx ? "updated" : "saved"}`);
+      toast.success(
+        `Enregistrement ${editingTx ? "mis à jour" : "sauvegardé"}`
+      );
       setIsModalOpen(false);
       setEditingTx(null);
     },
@@ -210,7 +211,7 @@ export default function Finance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
-      toast.success("Deleted");
+      toast.success("Supprimé");
       setTxToDelete(null);
     },
   });
@@ -230,7 +231,7 @@ export default function Finance() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header Section */}
+      {/* Section En-tête */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">
@@ -238,7 +239,7 @@ export default function Finance() {
           </h1>
           <div className="flex items-center mt-2 text-gray-500 font-medium">
             <Receipt className="w-4 h-4 mr-2" />
-            Track every movement • Cash flow control
+            Suivez chaque mouvement • Contrôle des flux de trésorerie
           </div>
         </div>
 
@@ -254,11 +255,11 @@ export default function Finance() {
           }`}
         >
           <Plus className="w-6 h-6 mr-2" />
-          <span>New {activeTab === "income" ? "Income" : "Expense"}</span>
+          <span>Nouveau {activeTab === "income" ? "Revenu" : "Dépense"}</span>
         </button>
       </div>
 
-      {/* Navigation & Search */}
+      {/* Navigation & Recherche */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="inline-flex p-1.5 bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-md rounded-2xl border border-gray-100 dark:border-gray-700">
           <button
@@ -270,7 +271,7 @@ export default function Finance() {
             }`}
           >
             <ArrowUpCircle className="w-4 h-4 mr-2" />
-            Incomes
+            Revenus
           </button>
           <button
             onClick={() => setActiveTab("expense")}
@@ -281,14 +282,14 @@ export default function Finance() {
             }`}
           >
             <ArrowDownCircle className="w-4 h-4 mr-2" />
-            Expenses
+            Dépenses
           </button>
         </div>
 
         <div className="relative flex-1 max-w-xl group">
           <input
             type="text"
-            placeholder="Search transactions..."
+            placeholder="Rechercher des transactions..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-6 py-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
@@ -297,17 +298,17 @@ export default function Finance() {
         </div>
       </div>
 
-      {/* Data Table */}
+      {/* Tableau de Données */}
       <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-gray-50 dark:bg-gray-700/30">
               <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                <th className="px-8 py-6">Execution Date</th>
+                <th className="px-8 py-6">Date d'Exécution</th>
                 <th className="px-8 py-6">Description & Contact</th>
-                <th className="px-8 py-6">Method</th>
-                <th className="px-8 py-6">Status</th>
-                <th className="px-8 py-6 text-right">Amount</th>
+                <th className="px-8 py-6">Méthode</th>
+                <th className="px-8 py-6">Statut</th>
+                <th className="px-8 py-6 text-right">Montant</th>
                 <th className="px-8 py-6 text-center">Actions</th>
               </tr>
             </thead>
@@ -318,7 +319,7 @@ export default function Finance() {
                     colSpan={6}
                     className="px-8 py-20 text-center font-bold text-gray-400 animate-pulse"
                   >
-                    Loading data...
+                    Chargement des données...
                   </td>
                 </tr>
               ) : txResponse?.data.length === 0 ? (
@@ -326,7 +327,7 @@ export default function Finance() {
                   <td colSpan={6} className="px-8 py-20 text-center">
                     <Receipt className="w-16 h-16 text-gray-100 dark:text-gray-700 mx-auto mb-4" />
                     <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
-                      No movements found
+                      Aucun mouvement trouvé
                     </p>
                   </td>
                 </tr>
@@ -337,7 +338,7 @@ export default function Finance() {
                     className="hover:bg-gray-50 dark:hover:bg-gray-700/20 transition-all group"
                   >
                     <td className="px-8 py-6 text-sm font-black text-gray-400">
-                      {new Date(tx.date).toLocaleDateString(undefined, {
+                      {new Date(tx.date).toLocaleDateString("fr-FR", {
                         day: "2-digit",
                         month: "short",
                         year: "numeric",
@@ -349,7 +350,7 @@ export default function Finance() {
                       </div>
                       <div className="flex items-center text-[10px] font-black text-blue-500 uppercase mt-1">
                         <User className="w-3 h-3 mr-1" />
-                        {tx.contact_person || "Direct Transaction"}
+                        {tx.contact_person || "Transaction Directe"}
                       </div>
                     </td>
                     <td className="px-8 py-6">
@@ -367,7 +368,7 @@ export default function Finance() {
                               : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                           }`}
                         >
-                          {tx.is_cashed ? "Cleared" : "In Progress"}
+                          {tx.is_cashed ? "Encaissé" : "En cours"}
                         </span>
                       ) : (
                         <span className="text-gray-200 dark:text-gray-700">
@@ -419,14 +420,18 @@ export default function Finance() {
         </div>
       </div>
 
-      {/* Transaction Modal */}
+      {/* Modal de Transaction */}
       <InternalModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setEditingTx(null);
         }}
-        title={editingTx ? `Update ${activeTab}` : `New ${activeTab}`}
+        title={
+          editingTx
+            ? `Modifier ${activeTab === "income" ? "revenu" : "dépense"}`
+            : `Nouveau ${activeTab === "income" ? "revenu" : "dépense"}`
+        }
         size="lg"
       >
         <form
@@ -439,7 +444,7 @@ export default function Finance() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                Volume (Amount MAD)
+                Volume (Montant MAD)
               </label>
               <input
                 type="number"
@@ -455,7 +460,7 @@ export default function Finance() {
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                Effective Date
+                Date d'effet
               </label>
               <input
                 type="date"
@@ -471,7 +476,7 @@ export default function Finance() {
 
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-              Label / Description
+              Libellé / Description
             </label>
             <input
               type="text"
@@ -488,7 +493,7 @@ export default function Finance() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="relative space-y-2" ref={dropdownRef}>
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                Linked {activeTab === "income" ? "Client" : "Supplier"}
+                {activeTab === "income" ? "Client" : "Fournisseur"} lié
               </label>
               <div className="relative">
                 <input
@@ -503,7 +508,7 @@ export default function Finance() {
                     setShowContactDropdown(true);
                   }}
                   onFocus={() => setShowContactDropdown(true)}
-                  placeholder={`Search database...`}
+                  placeholder={`Rechercher dans la base...`}
                   className="w-full pl-12 pr-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
                 />
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -529,7 +534,7 @@ export default function Finance() {
                       <span className="block text-[9px] text-gray-400 font-bold uppercase mt-0.5">
                         {contact.ice ||
                           contact.service_type ||
-                          "Database Record"}
+                          "Enregistrement Base"}
                       </span>
                     </button>
                   ))}
@@ -538,7 +543,7 @@ export default function Finance() {
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                Category / Tag
+                Catégorie / Étiquette
               </label>
               <input
                 type="text"
@@ -555,7 +560,7 @@ export default function Finance() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                Payment Protocol
+                Protocole de Paiement
               </label>
               <select
                 value={formData.payment_method}
@@ -564,10 +569,10 @@ export default function Finance() {
                 }
                 className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-black"
               >
-                <option value="cash">Cash (Physical)</option>
-                <option value="virement">Transfer (Bank)</option>
-                <option value="cheque">Check (Bank)</option>
-                <option value="versement">Deposit (Bank)</option>
+                <option value="cash">Espèces (Physique)</option>
+                <option value="virement">Virement (Bancaire)</option>
+                <option value="cheque">Chèque (Bancaire)</option>
+                <option value="versement">Versement (Bancaire)</option>
               </select>
             </div>
             {formData.payment_method === "cheque" && (
@@ -582,7 +587,7 @@ export default function Finance() {
                     className="w-5 h-5 rounded-lg text-emerald-600 focus:ring-emerald-500 mr-2 border-gray-300 transition-all"
                   />
                   <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-emerald-600 transition-colors">
-                    Cashed
+                    Encaissé
                   </span>
                 </label>
                 <label className="flex items-center cursor-pointer group">
@@ -595,7 +600,7 @@ export default function Finance() {
                     className="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500 mr-2 border-gray-300 transition-all"
                   />
                   <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">
-                    Banked
+                    En banque
                   </span>
                 </label>
               </div>
@@ -608,7 +613,7 @@ export default function Finance() {
               onClick={() => setIsModalOpen(false)}
               className="px-8 py-4 rounded-2xl font-black text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-sm uppercase tracking-widest"
             >
-              Cancel
+              Annuler
             </button>
             <button
               type="submit"
@@ -620,38 +625,38 @@ export default function Finance() {
               }`}
             >
               {isPending
-                ? "Updating..."
+                ? "Mise à jour..."
                 : editingTx
-                ? "Update Ledger"
-                : "Register Movement"}
+                ? "Mettre à jour le Grand Livre"
+                : "Enregistrer le Mouvement"}
             </button>
           </div>
         </form>
       </InternalModal>
 
-      {/* Delete Confirmation */}
+      {/* Confirmation de Suppression */}
       <InternalModal
         isOpen={!!txToDelete}
         onClose={() => setTxToDelete(null)}
-        title="Delete Movement"
+        title="Supprimer le Mouvement"
       >
         <div className="space-y-6">
           <p className="text-gray-600 dark:text-gray-300 font-bold leading-relaxed">
-            This action will permanently remove this entry from your financial
-            ledger and treasury calculations.
+            Cette action supprimera définitivement cette entrée de votre grand
+            livre financier et des calculs de trésorerie.
           </p>
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setTxToDelete(null)}
               className="px-6 py-3 rounded-xl font-bold text-gray-500"
             >
-              Cancel
+              Annuler
             </button>
             <button
               onClick={() => deleteTx(txToDelete)}
               className="px-6 py-3 bg-rose-600 text-white rounded-xl font-black shadow-lg shadow-rose-500/20 hover:bg-rose-700"
             >
-              Confirm Deletion
+              Confirmer la Suppression
             </button>
           </div>
         </div>

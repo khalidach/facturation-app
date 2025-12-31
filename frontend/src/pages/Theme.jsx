@@ -5,7 +5,7 @@ import { Save, Palette, RefreshCw } from "lucide-react";
 import FacturePDF from "../components/facturation/FacturePDF.jsx";
 import ThemeEditor from "../components/theme/ThemeEditor.jsx";
 
-// Default styles structure
+// Structure des styles par défaut
 const initialStyles = {
   header: {
     container: {
@@ -91,7 +91,7 @@ const initialStyles = {
   },
 };
 
-// A sample facture for previewing the theme
+// Un exemple de facture pour prévisualiser le thème
 const sampleFacture = {
   type: "facture",
   facture_number: "2024-001",
@@ -133,7 +133,7 @@ export default function Theme() {
 
   useEffect(() => {
     if (themeData && themeData.styles) {
-      // Deep merge saved styles with initial styles to ensure all keys exist
+      // Fusion profonde des styles enregistrés avec les styles initiaux
       const deepMerge = (target, source) => {
         const output = { ...target };
         if (
@@ -165,10 +165,10 @@ export default function Theme() {
       window.electronAPI.updateTheme({ styles: newStyles }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["theme"] });
-      toast.success("Theme saved successfully!");
+      toast.success("Thème enregistré avec succès !");
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to save theme.");
+      toast.error(error.message || "Échec de l'enregistrement du thème.");
     },
   });
 
@@ -180,23 +180,20 @@ export default function Theme() {
         const path = element.split("_");
         let target = newStyles[section];
 
-        // Traverse to the parent of the target element
+        // Parcourir jusqu'au parent de l'élément cible
         for (let i = 0; i < path.length - 1; i++) {
-          if (!target[path[i]]) target[path[i]] = {}; // Create nested objects if they don't exist
+          if (!target[path[i]]) target[path[i]] = {};
           target = target[path[i]];
         }
 
         const finalKey = path[path.length - 1];
 
-        // Ensure the final element object exists
         if (!target[finalKey]) {
           target[finalKey] = {};
         }
 
-        // Set the property
         target[finalKey][property] = value;
       } else {
-        // This is for properties on the section itself, like customCss
         newStyles[section][property] = value;
       }
 
@@ -213,7 +210,9 @@ export default function Theme() {
       <div className="flex h-full items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
           <RefreshCw className="h-10 w-10 animate-spin text-blue-600" />
-          <p className="font-medium text-gray-500">Loading editor...</p>
+          <p className="font-medium text-gray-500 italic">
+            Chargement de l'éditeur...
+          </p>
         </div>
       </div>
     );
@@ -221,29 +220,29 @@ export default function Theme() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Left Panel: Editor */}
+      {/* Panneau gauche : Éditeur */}
       <aside className="w-1/3 bg-white dark:bg-gray-800 p-6 overflow-y-auto shadow-lg">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center">
             <Palette className="w-8 h-8 mr-3 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Theme Editor
+              Éditeur de Thème
             </h1>
           </div>
           <button
             onClick={handleSave}
             disabled={isPending}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-sm disabled:bg-gray-400"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-sm disabled:bg-gray-400 transition-colors"
           >
             <Save className="w-5 h-5 mr-2" />
-            {isPending ? "Saving..." : "Save"}
+            {isPending ? "Enregistrement..." : "Enregistrer"}
           </button>
         </div>
 
         <ThemeEditor styles={styles} onStyleChange={handleStyleChange} />
       </aside>
 
-      {/* Right Panel: Live Preview */}
+      {/* Panneau droit : Prévisualisation en direct */}
       <main className="flex-1 bg-gray-200 dark:bg-gray-900 p-8 overflow-y-auto">
         <div className="w-[210mm] min-h-[297mm] mx-auto shadow-2xl">
           <FacturePDF facture={sampleFacture} themeStyles={styles} />

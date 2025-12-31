@@ -3,15 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import { Save } from "lucide-react";
 
-// API helper and 'api' object removed
-
 export default function Settings() {
   const queryClient = useQueryClient();
   const [settings, setSettings] = useState({});
 
   const { data: initialSettings, isLoading } = useQuery({
     queryKey: ["settings"],
-    queryFn: window.electronAPI.getSettings, // Changed
+    queryFn: window.electronAPI.getSettings,
   });
 
   useEffect(() => {
@@ -21,13 +19,13 @@ export default function Settings() {
   }, [initialSettings]);
 
   const { mutate: updateSettings, isPending } = useMutation({
-    mutationFn: window.electronAPI.updateSettings, // Changed
+    mutationFn: window.electronAPI.updateSettings,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings"] });
-      toast.success("Settings saved successfully!");
+      toast.success("Paramètres enregistrés avec succès !");
     },
     onError: (error) => {
-      toast.error(error.message || "Failed to save settings.");
+      toast.error(error.message || "Échec de l'enregistrement des paramètres.");
     },
   });
 
@@ -53,7 +51,11 @@ export default function Settings() {
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-gray-500 font-medium italic">Chargement...</p>
+      </div>
+    );
   }
 
   const companyFields = [
@@ -62,12 +64,12 @@ export default function Settings() {
     { key: "rc", label: "RC" },
     { key: "patente", label: "Patente" },
     { key: "cnss", label: "CNSS" },
-    { key: "address", label: "Address" },
-    { key: "phone", label: "Phone" },
+    { key: "address", label: "Adresse" },
+    { key: "phone", label: "Téléphone" },
     { key: "email", label: "Email" },
-    { key: "bankName", label: "Bank Name" },
+    { key: "bankName", label: "Nom de la Banque" },
     { key: "rib", label: "RIB" },
-    { key: "typeSociete", label: "Type of Societe" },
+    { key: "typeSociete", label: "Forme Juridique" },
     { key: "capital", label: "Capital" },
   ];
 
@@ -75,10 +77,11 @@ export default function Settings() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Settings
+          Paramètres
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Manage your company and invoice settings.
+          Gérez les informations de votre entreprise et les paramètres de
+          facturation.
         </p>
       </div>
 
@@ -87,17 +90,17 @@ export default function Settings() {
         className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700"
       >
         <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-6">
-          Facturation Settings
+          Configuration de Facturation
         </h2>
 
         <div className="space-y-6">
           <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 border-b pb-2">
-            Company Info
+            Informations sur l'Entreprise
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-400">
-                Agency Name
+                Nom de l'Agence
               </label>
               <input
                 type="text"
@@ -109,7 +112,7 @@ export default function Settings() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-600 dark:text-gray-400">
-                Agency Logo
+                Logo de l'Agence
               </label>
               <input
                 type="file"
@@ -121,7 +124,7 @@ export default function Settings() {
               {settings.logo && (
                 <img
                   src={settings.logo}
-                  alt="Logo Preview"
+                  alt="Aperçu du Logo"
                   className="mt-4 h-20 w-auto rounded-md shadow-sm"
                 />
               )}
@@ -149,10 +152,10 @@ export default function Settings() {
           <button
             type="submit"
             disabled={isPending}
-            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-sm disabled:bg-gray-400"
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 shadow-sm disabled:bg-gray-400 transition-colors"
           >
             <Save className="w-5 h-5 mr-2" />
-            {isPending ? "Saving..." : "Save Settings"}
+            {isPending ? "Enregistrement..." : "Enregistrer les paramètres"}
           </button>
         </div>
       </form>

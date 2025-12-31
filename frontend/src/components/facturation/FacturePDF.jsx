@@ -1,9 +1,8 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-// Fixed: Changed alias path to relative path for better compatibility with the preview environment
 import { numberToWordsFr } from "../../services/numberToWords.js";
 
-// Helper to get nested style object
+// Fonction d'aide pour obtenir l'objet de style imbriqué
 const getStyle = (styles, path) => {
   try {
     return path.split(".").reduce((acc, key) => acc && acc[key], styles) || {};
@@ -21,7 +20,7 @@ export default function FacturePDF({ facture, themeStyles }) {
   const { data: savedTheme } = useQuery({
     queryKey: ["theme"],
     queryFn: window.electronAPI.getTheme,
-    enabled: !themeStyles, // Only fetch if no theme is passed via props
+    enabled: !themeStyles,
   });
 
   const styles = themeStyles || savedTheme?.styles || {};
@@ -32,8 +31,7 @@ export default function FacturePDF({ facture, themeStyles }) {
 
   const totalInWords = numberToWordsFr(facture.total);
 
-  // CRITICAL FIX: Cast showMargin to a strict boolean.
-  // SQLite stores booleans as 0/1. If React sees {0 && ...}, it renders "0".
+  // Conversion de showMargin en booléen strict
   const showMargin = !!(facture.showMargin ?? true);
 
   const parsedItems =
@@ -61,40 +59,40 @@ export default function FacturePDF({ facture, themeStyles }) {
           style={getStyle(styles, "header.container")}
         >
           <div className="flex justify-between items-center mb-8">
-            {/* Left Side: Logo and Agency Name */}
+            {/* Côté gauche : Logo et Nom de l'agence */}
             <div className="flex items-center gap-4">
               {settings?.logo && (
                 <img
                   src={settings.logo}
-                  alt="Agency Logo"
+                  alt="Logo de l'agence"
                   className="block"
                   style={getStyle(styles, "header.logo")}
                 />
               )}
               <h1 style={getStyle(styles, "header.agencyName")}>
-                {settings?.agencyName || "Your Agency"}
+                {settings?.agencyName || "Votre Agence"}
               </h1>
             </div>
-            {/* Right Side: Invoice Details */}
+            {/* Côté droit : Détails du document */}
             <div className="flex flex-col items-end justify-center flex-1 text-right">
               <h2
                 className="uppercase"
                 style={getStyle(styles, "header.factureType")}
               >
-                {facture.type}
+                {facture.type === "devis" ? "Devis" : "Facture"}
               </h2>
               <p
                 className="mt-1"
                 style={getStyle(styles, "header.factureNumber")}
               >
-                N°: {facture.facture_number}
+                N° : {facture.facture_number}
               </p>
               <p style={getStyle(styles, "header.date")}>
-                Date: {new Date(facture.date).toLocaleDateString("en-GB")}
+                Date : {new Date(facture.date).toLocaleDateString("fr-FR")}
               </p>
               {settings?.ice && (
                 <p style={getStyle(styles, "header.ice")}>
-                  ICE: {settings.ice}
+                  ICE : {settings.ice}
                 </p>
               )}
             </div>
@@ -115,7 +113,7 @@ export default function FacturePDF({ facture, themeStyles }) {
               </p>
               {facture.clientICE && (
                 <p style={getStyle(styles, "body.clientInfo.clientICE")}>
-                  ICE: {facture.clientICE}
+                  ICE : {facture.clientICE}
                 </p>
               )}
             </div>
@@ -135,7 +133,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                     verticalAlign: "middle",
                   }}
                 >
-                  DESIGNATION
+                  DÉSIGNATION
                 </th>
                 <th
                   style={{
@@ -144,7 +142,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                     verticalAlign: "middle",
                   }}
                 >
-                  QU
+                  QTÉ
                 </th>
                 <th
                   style={{
@@ -163,7 +161,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                       verticalAlign: "middle",
                     }}
                   >
-                    FRAIS. SCE UNITAIRE
+                    FRAIS SERV. UNITAIRE
                   </th>
                 )}
                 <th
@@ -308,18 +306,18 @@ export default function FacturePDF({ facture, themeStyles }) {
         <div className="flex gap-2 justify-center flex-wrap">
           {[
             `Sté. ${settings?.agencyName || ""} ${settings?.typeSociete || ""}`,
-            settings?.capital && `Capital: ${settings.capital} Dhs`,
-            settings?.address && `Siège Social: ${settings.address}`,
-            settings?.phone && `Fix: ${settings.phone}`,
-            settings?.email && `Email: ${settings.email}`,
-            settings?.ice && `ICE: ${settings.ice}`,
-            settings?.if && `IF: ${settings.if}`,
-            settings?.rc && `RC: ${settings.rc}`,
-            settings?.patente && `Patente: ${settings.patente}`,
-            settings?.cnss && `CNSS: ${settings.cnss}`,
+            settings?.capital && `Capital : ${settings.capital} Dhs`,
+            settings?.address && `Siège Social : ${settings.address}`,
+            settings?.phone && `Fixe : ${settings.phone}`,
+            settings?.email && `Email : ${settings.email}`,
+            settings?.ice && `ICE : ${settings.ice}`,
+            settings?.if && `IF : ${settings.if}`,
+            settings?.rc && `RC : ${settings.rc}`,
+            settings?.patente && `Patente : ${settings.patente}`,
+            settings?.cnss && `CNSS : ${settings.cnss}`,
             settings?.bankName &&
               settings?.rib &&
-              `Bank ${settings.bankName}: ${settings.rib}`,
+              `Banque ${settings.bankName} : ${settings.rib}`,
           ]
             .filter(Boolean)
             .map((item, idx) => (

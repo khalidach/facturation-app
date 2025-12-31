@@ -64,7 +64,7 @@ export default function Treasury() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
-      toast.success("Transfer completed successfully");
+      toast.success("Transfert effectué avec succès");
       setIsTransferModalOpen(false);
       setFormData({ ...formData, amount: "" });
     },
@@ -75,7 +75,7 @@ export default function Treasury() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
       queryClient.invalidateQueries({ queryKey: ["transfers"] });
-      toast.success("Transfer deleted successfully");
+      toast.success("Transfert supprimé avec succès");
       setTransferToDelete(null);
     },
     onError: (err) => toast.error(err.message),
@@ -86,8 +86,8 @@ export default function Treasury() {
       const transaction = {
         amount: parseFloat(data.amount),
         description: data.description,
-        category: "Treasury Adjustment",
-        contact_person: "Manual Adjustment",
+        category: "Ajustement de trésorerie",
+        contact_person: "Ajustement manuel",
         date: data.date,
         payment_method: data.account === "banque" ? "virement" : "cash",
         is_cashed: true,
@@ -99,7 +99,7 @@ export default function Treasury() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast.success("Balance added successfully");
+      toast.success("Solde ajouté avec succès");
       setIsAddBalanceModalOpen(false);
       setAddBalanceData({ ...addBalanceData, amount: "" });
     },
@@ -111,8 +111,8 @@ export default function Treasury() {
       const transaction = {
         amount: parseFloat(data.amount),
         description: data.description,
-        category: "Treasury Adjustment",
-        contact_person: "Manual Adjustment",
+        category: "Ajustement de trésorerie",
+        contact_person: "Ajustement manuel",
         date: data.date,
         payment_method: data.account === "banque" ? "virement" : "cash",
         is_cashed: true,
@@ -124,7 +124,7 @@ export default function Treasury() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      toast.success("Balance removed successfully");
+      toast.success("Solde retiré avec succès");
       setIsRemoveBalanceModalOpen(false);
       setRemoveBalanceData({ ...removeBalanceData, amount: "" });
     },
@@ -144,9 +144,13 @@ export default function Treasury() {
     const amount = parseFloat(formData.amount);
     const sourceBalance = stats?.[formData.from_account] || 0;
 
-    if (amount <= 0) return toast.error("Invalid amount");
+    if (amount <= 0) return toast.error("Montant invalide");
     if (amount > sourceBalance) {
-      return toast.error(`Insufficient funds in ${formData.from_account}`);
+      return toast.error(
+        `Fonds insuffisants dans ${
+          formData.from_account === "banque" ? "la banque" : "la caisse"
+        }`
+      );
     }
 
     createTransfer(formData);
@@ -155,7 +159,7 @@ export default function Treasury() {
   const handleAddBalanceSubmit = (e) => {
     e.preventDefault();
     if (parseFloat(addBalanceData.amount) <= 0)
-      return toast.error("Invalid amount");
+      return toast.error("Montant invalide");
     addBalance(addBalanceData);
   };
 
@@ -164,10 +168,12 @@ export default function Treasury() {
     const amount = parseFloat(removeBalanceData.amount);
     const currentBalance = stats?.[removeBalanceData.account] || 0;
 
-    if (amount <= 0) return toast.error("Invalid amount");
+    if (amount <= 0) return toast.error("Montant invalide");
     if (amount > currentBalance) {
       return toast.error(
-        `Cannot remove more than available in ${removeBalanceData.account}`
+        `Impossible de retirer plus que le montant disponible dans ${
+          removeBalanceData.account === "banque" ? "la banque" : "la caisse"
+        }`
       );
     }
     removeBalance(removeBalanceData);
@@ -183,10 +189,10 @@ export default function Treasury() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">
-            Treasury
+            Trésorerie
           </h1>
           <p className="text-gray-500 font-medium">
-            Manage your cash flow and internal movements.
+            Gérez votre flux de trésorerie et vos mouvements internes.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 w-full md:w-auto">
@@ -194,19 +200,19 @@ export default function Treasury() {
             onClick={() => setIsRemoveBalanceModalOpen(true)}
             className="flex-1 md:flex-none bg-rose-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center hover:bg-rose-700 transition-all shadow-lg shadow-rose-500/20"
           >
-            <Minus className="w-5 h-5 mr-2" /> Remove Balance
+            <Minus className="w-5 h-5 mr-2" /> Retirer du solde
           </button>
           <button
             onClick={() => setIsAddBalanceModalOpen(true)}
             className="flex-1 md:flex-none bg-emerald-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20"
           >
-            <Plus className="w-5 h-5 mr-2" /> Add Balance
+            <Plus className="w-5 h-5 mr-2" /> Ajouter au solde
           </button>
           <button
             onClick={() => setIsTransferModalOpen(true)}
             className="flex-1 md:flex-none bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
           >
-            <ArrowLeftRight className="w-5 h-5 mr-2" /> Internal Transfer
+            <ArrowLeftRight className="w-5 h-5 mr-2" /> Transfert interne
           </button>
         </div>
       </div>
@@ -222,34 +228,34 @@ export default function Treasury() {
             <span className="text-xl">MAD</span>
           </h2>
           <div className="mt-8 flex items-center gap-2 text-blue-100 text-xs font-semibold">
-            <TrendingUp className="w-4 h-4" /> Real-time Bank liquidity
+            <TrendingUp className="w-4 h-4" /> Liquidité bancaire en temps réel
           </div>
         </div>
 
         <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
           <Banknote className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 group-hover:scale-110 transition-transform" />
           <p className="text-emerald-100 font-bold uppercase tracking-widest text-[10px]">
-            Caisse (Cash)
+            Caisse (Espèces)
           </p>
           <h2 className="text-4xl font-black mt-4">
             {statsLoading ? "..." : stats?.caisse.toLocaleString()}{" "}
             <span className="text-xl">MAD</span>
           </h2>
           <div className="mt-8 flex items-center gap-2 text-emerald-100 text-xs font-semibold">
-            <TrendingDown className="w-4 h-4" /> Physical cash on hand
+            <TrendingDown className="w-4 h-4" /> Espèces physiques en main
           </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 p-8 rounded-[2.5rem] shadow-sm flex flex-col justify-center">
           <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">
-            Outstanding Checks
+            Chèques en attente
           </p>
           <h2 className="text-3xl font-black text-gray-900 dark:text-white mt-4">
             {statsLoading ? "..." : stats?.pendingChecks.toLocaleString()}{" "}
             <span className="text-lg">MAD</span>
           </h2>
           <p className="text-gray-400 text-[10px] mt-4 flex items-center">
-            <Clock className="w-3 h-3 mr-1" /> Payments not yet cashed
+            <Clock className="w-3 h-3 mr-1" /> Paiements non encore encaissés
           </p>
         </div>
       </div>
@@ -257,7 +263,8 @@ export default function Treasury() {
       <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="p-8 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between">
           <h3 className="text-xl font-black flex items-center">
-            <History className="w-5 h-5 mr-2 text-blue-600" /> Transfer Ledger
+            <History className="w-5 h-5 mr-2 text-blue-600" /> Journal des
+            transferts
           </h3>
         </div>
         <div className="overflow-x-auto">
@@ -265,9 +272,9 @@ export default function Treasury() {
             <thead className="bg-gray-50 dark:bg-gray-700/30 text-xs font-bold uppercase text-gray-400">
               <tr>
                 <th className="px-8 py-4">Date</th>
-                <th className="px-8 py-4">Movement</th>
+                <th className="px-8 py-4">Mouvement</th>
                 <th className="px-8 py-4">Description</th>
-                <th className="px-8 py-4 text-right">Amount</th>
+                <th className="px-8 py-4 text-right">Montant</th>
                 <th className="px-8 py-4 text-center">Actions</th>
               </tr>
             </thead>
@@ -283,11 +290,11 @@ export default function Treasury() {
                   <td className="px-8 py-4">
                     <div className="flex items-center gap-3">
                       <span className="capitalize font-bold text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        {t.from_account}
+                        {t.from_account === "banque" ? "banque" : "caisse"}
                       </span>
                       <ArrowLeftRight className="w-3 h-3 text-gray-400" />
                       <span className="capitalize font-bold text-xs px-2 py-1 bg-blue-50 text-blue-600 dark:bg-blue-900/20 rounded-lg">
-                        {t.to_account}
+                        {t.to_account === "banque" ? "banque" : "caisse"}
                       </span>
                     </div>
                   </td>
@@ -313,7 +320,7 @@ export default function Treasury() {
                     colSpan={5}
                     className="p-12 text-center text-gray-400 italic"
                   >
-                    No transfer history found.
+                    Aucun historique de transfert trouvé.
                   </td>
                 </tr>
               )}
@@ -332,23 +339,23 @@ export default function Treasury() {
       <Modal
         isOpen={isTransferModalOpen}
         onClose={() => setIsTransferModalOpen(false)}
-        title="Internal Transfer"
+        title="Transfert interne"
       >
         <form onSubmit={handleTransferSubmit} className="space-y-6">
           <div className="bg-gray-50 dark:bg-gray-700/30 p-6 rounded-2xl flex items-center justify-between gap-4">
             <div className="flex-1 text-center">
               <p className="text-[10px] font-black uppercase text-gray-400 mb-2">
-                From
+                De
               </p>
               <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm font-bold capitalize border border-blue-200">
-                {formData.from_account}
+                {formData.from_account === "banque" ? "Banque" : "Caisse"}
               </div>
               <p
                 className={`text-[10px] mt-2 font-bold ${
                   currentSourceBalance <= 0 ? "text-red-500" : "text-gray-400"
                 }`}
               >
-                Balance: {currentSourceBalance.toLocaleString()} MAD
+                Solde : {currentSourceBalance.toLocaleString()} MAD
               </p>
             </div>
 
@@ -362,10 +369,10 @@ export default function Treasury() {
 
             <div className="flex-1 text-center">
               <p className="text-[10px] font-black uppercase text-gray-400 mb-2">
-                To
+                À
               </p>
               <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm font-bold capitalize border border-blue-200">
-                {formData.to_account}
+                {formData.to_account === "banque" ? "Banque" : "Caisse"}
               </div>
             </div>
           </div>
@@ -373,7 +380,7 @@ export default function Treasury() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-black uppercase text-gray-400 block mb-2">
-                Amount
+                Montant
               </label>
               <input
                 type="number"
@@ -391,7 +398,7 @@ export default function Treasury() {
               />
               {parseFloat(formData.amount) > currentSourceBalance && (
                 <p className="text-[10px] text-red-500 font-bold mt-1">
-                  Insufficient funds
+                  Fonds insuffisants
                 </p>
               )}
             </div>
@@ -431,10 +438,10 @@ export default function Treasury() {
             className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-blue-700 disabled:bg-gray-300 transition-all shadow-lg"
           >
             {isPending
-              ? "Processing..."
+              ? "Traitement..."
               : currentSourceBalance <= 0
-              ? "Insufficient Funds"
-              : "Confirm Transfer"}
+              ? "Fonds insuffisants"
+              : "Confirmer le transfert"}
           </button>
         </form>
       </Modal>
@@ -442,7 +449,7 @@ export default function Treasury() {
       <Modal
         isOpen={isAddBalanceModalOpen}
         onClose={() => setIsAddBalanceModalOpen(false)}
-        title="Add Account Balance"
+        title="Ajouter au solde du compte"
       >
         <form onSubmit={handleAddBalanceSubmit} className="space-y-6">
           <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl grid grid-cols-2 gap-4">
@@ -479,7 +486,7 @@ export default function Treasury() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-black uppercase text-gray-400 block mb-2">
-                Amount to Add
+                Montant à ajouter
               </label>
               <input
                 type="number"
@@ -514,11 +521,11 @@ export default function Treasury() {
 
           <div>
             <label className="text-xs font-black uppercase text-gray-400 block mb-2">
-              Reason / Source
+              Raison / Source
             </label>
             <input
               type="text"
-              placeholder="e.g. Dépôt initial"
+              placeholder="Ex: Dépôt initial"
               className="input"
               value={addBalanceData.description}
               onChange={(e) =>
@@ -535,7 +542,7 @@ export default function Treasury() {
             disabled={isAddingBalance || !addBalanceData.amount}
             className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-emerald-700 disabled:bg-gray-300 transition-all shadow-lg"
           >
-            {isAddingBalance ? "Saving..." : "Confirm Deposit"}
+            {isAddingBalance ? "Enregistrement..." : "Confirmer le dépôt"}
           </button>
         </form>
       </Modal>
@@ -543,7 +550,7 @@ export default function Treasury() {
       <Modal
         isOpen={isRemoveBalanceModalOpen}
         onClose={() => setIsRemoveBalanceModalOpen(false)}
-        title="Remove Account Balance"
+        title="Retirer du solde du compte"
       >
         <form onSubmit={handleRemoveBalanceSubmit} className="space-y-6">
           <div className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl grid grid-cols-2 gap-4">
@@ -585,7 +592,7 @@ export default function Treasury() {
 
           <div className="text-center">
             <p className="text-xs font-bold text-gray-400 uppercase">
-              Available Balance
+              Solde disponible
             </p>
             <p className="text-xl font-black text-rose-600">
               {(stats?.[removeBalanceData.account] || 0).toLocaleString()} MAD
@@ -595,7 +602,7 @@ export default function Treasury() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-black uppercase text-gray-400 block mb-2">
-                Amount to Remove
+                Montant à retirer
               </label>
               <input
                 type="number"
@@ -619,7 +626,7 @@ export default function Treasury() {
               {parseFloat(removeBalanceData.amount) >
                 (stats?.[removeBalanceData.account] || 0) && (
                 <p className="text-[10px] text-rose-500 font-bold mt-1">
-                  Exceeds available balance
+                  Dépasse le solde disponible
                 </p>
               )}
             </div>
@@ -644,11 +651,11 @@ export default function Treasury() {
 
           <div>
             <label className="text-xs font-black uppercase text-gray-400 block mb-2">
-              Reason / Reference
+              Raison / Référence
             </label>
             <input
               type="text"
-              placeholder="e.g. Correction d'erreur"
+              placeholder="Ex: Correction d'erreur"
               className="input"
               value={removeBalanceData.description}
               onChange={(e) =>
@@ -670,7 +677,7 @@ export default function Treasury() {
             }
             className="w-full bg-rose-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-rose-700 disabled:bg-gray-300 transition-all shadow-lg"
           >
-            {isRemovingBalance ? "Processing..." : "Confirm Removal"}
+            {isRemovingBalance ? "Traitement..." : "Confirmer le retrait"}
           </button>
         </form>
       </Modal>
@@ -679,8 +686,8 @@ export default function Treasury() {
         isOpen={!!transferToDelete}
         onClose={() => setTransferToDelete(null)}
         onConfirm={() => deleteTransfer(transferToDelete)}
-        title="Delete Transfer"
-        message="Are you sure you want to delete this internal transfer entry? This will update your account balances immediately."
+        title="Supprimer le transfert"
+        message="Êtes-vous sûr de vouloir supprimer cette entrée de transfert interne ? Cela mettra à jour vos soldes de compte immédiatement."
       />
     </div>
   );

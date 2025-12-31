@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import ClientSearch from "./ClientSearch.jsx"; // 1. IMPORT NEW COMPONENT
+import ClientSearch from "./ClientSearch.jsx";
 
 const emptyItem = {
   description: "",
@@ -33,10 +33,10 @@ export default function FactureForm({
       setClientName(existingFacture.clientName);
       setClientAddress(existingFacture.clientAddress || "");
       setClientICE(existingFacture.clientICE || "");
-      // Safely parse the date from 'YYYY-MM-DD' to avoid timezone issues
+
       const dateParts = existingFacture.date.split("-");
       const year = parseInt(dateParts[0], 10);
-      const month = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+      const month = parseInt(dateParts[1], 10) - 1;
       const day = parseInt(dateParts[2], 10);
       setDate(new Date(year, month, day));
 
@@ -59,7 +59,7 @@ export default function FactureForm({
             }));
           }
         } catch (e) {
-          console.error("Failed to parse facture items:", e);
+          console.error("Échec de l'analyse des articles de la facture:", e);
         }
       }
       setItems(parsedItems);
@@ -77,7 +77,6 @@ export default function FactureForm({
     }
   }, [existingFacture, showMarginOnNew]);
 
-  // 2. NEW HANDLER FOR CLIENT SELECTION
   const handleClientSelect = (client) => {
     setClientName(client.name);
     setClientAddress(client.address || "");
@@ -140,7 +139,6 @@ export default function FactureForm({
       total: item.total,
     }));
 
-    // Format date to 'YYYY-MM-DD' for the backend, correcting for timezone offset
     const dateForBackend = new Date(
       date.getTime() - date.getTimezoneOffset() * 60000
     )
@@ -180,7 +178,7 @@ export default function FactureForm({
           htmlFor="show-margin-toggle"
           className="font-medium text-gray-700 dark:text-gray-300"
         >
-          Display Service Fees & TVA
+          Afficher les Frais de Service & TVA
         </label>
         <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
           <input
@@ -209,36 +207,35 @@ export default function FactureForm({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Document Number
+            Numéro du Document
           </label>
           <input
             type="text"
             value={factureNumber}
             onChange={(e) => setFactureNumber(e.target.value)}
-            placeholder="Auto-generated if left empty"
+            placeholder="Auto-généré si vide"
             className="input"
             disabled={!!existingFacture}
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Document Type
+            Type de Document
           </label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
             className="input"
           >
-            <option value="facture">Invoice</option>
-            <option value="devis">Quote</option>
+            <option value="facture">Facture</option>
+            <option value="devis">Devis</option>
           </select>
         </div>
       </div>
       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 border-b dark:border-gray-700 pb-2">
-        Client Info
+        Informations Client
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* 3. REPLACE CLIENT FIELDS */}
         <div>
           <ClientSearch
             onClientSelect={handleClientSelect}
@@ -247,13 +244,13 @@ export default function FactureForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Client Address
+            Adresse du Client
           </label>
           <input
             type="text"
             value={clientAddress}
             onChange={(e) => setClientAddress(e.target.value)}
-            placeholder="Auto-filled from client"
+            placeholder="Rempli automatiquement"
             className="input"
           />
         </div>
@@ -265,11 +262,10 @@ export default function FactureForm({
             type="text"
             value={clientICE}
             onChange={(e) => setClientICE(e.target.value)}
-            placeholder="Auto-filled from client"
+            placeholder="Rempli automatiquement"
             className="input"
           />
         </div>
-        {/* END REPLACEMENT */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Date
@@ -288,17 +284,17 @@ export default function FactureForm({
       </div>
 
       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 border-b dark:border-gray-700 pb-2">
-        Items
+        Articles
       </h3>
       <div className="space-y-4">
         <div
           className={`hidden md:grid ${gridColsClass} gap-2 text-sm font-medium text-gray-500 dark:text-gray-400`}
         >
-          <div className={descColSpan}>DESIGNATION</div>
-          <div className="col-span-1 text-center">QU</div>
+          <div className={descColSpan}>DÉSIGNATION</div>
+          <div className="col-span-1 text-center">QTÉ</div>
           <div className={`${priceColSpan} text-left`}>PRIX UNITAIRE</div>
           {showMargin && (
-            <div className="col-span-2 text-left">FRAIS. SCE UNITAIRE</div>
+            <div className="col-span-2 text-left">FRAIS SERV. UNITAIRE</div>
           )}
           <div className={`${totalColSpan} text-left`}>MONTANT TOTAL</div>
           <div className="col-span-1"></div>
@@ -391,7 +387,7 @@ export default function FactureForm({
           onClick={addItem}
           className="inline-flex items-center px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
         >
-          <Plus className="w-4 h-4 mr-1" /> Add Item
+          <Plus className="w-4 h-4 mr-1" /> Ajouter un Article
         </button>
       </div>
 
@@ -444,7 +440,7 @@ export default function FactureForm({
             </>
           )}
           <div className="flex justify-between font-bold text-lg border-t dark:border-gray-700 pt-2 mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded-md text-gray-900 dark:text-gray-100">
-            <span>Total Facture</span>
+            <span>Total {type === "facture" ? "Facture" : "Devis"}</span>
             <span>
               {calculatedTotals.totalFacture.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
@@ -463,7 +459,7 @@ export default function FactureForm({
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Add any notes here..."
+          placeholder="Ajouter des notes ici..."
           className="input"
           rows={3}
         ></textarea>
@@ -475,17 +471,17 @@ export default function FactureForm({
           onClick={onCancel}
           className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
         >
-          Cancel
+          Annuler
         </button>
         <button
           type="submit"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           {existingFacture
-            ? "Update Document"
+            ? "Modifier le Document"
             : type === "facture"
-            ? "Create Invoice"
-            : "Create Quote"}
+            ? "Créer la Facture"
+            : "Créer le Devis"}
         </button>
       </div>
     </form>

@@ -26,17 +26,17 @@ export default function PaginationControls({
         className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
       >
         <ChevronLeft className="h-5 w-5" />
-        <span>Previous</span>
+        <span>Précédent</span>
       </button>
       <div className="text-sm text-gray-700">
-        Page {currentPage} of {totalPages}
+        Page {currentPage} sur {totalPages}
       </div>
       <button
         onClick={handleNext}
         disabled={currentPage === totalPages}
         className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
       >
-        <span>Next</span>
+        <span>Suivant</span>
         <ChevronRight className="h-5 w-5" />
       </button>
     </div>

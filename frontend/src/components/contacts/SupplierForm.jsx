@@ -36,7 +36,7 @@ export default function SupplierForm({ onSave, onCancel, existingSupplier }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Supplier Name*
+            Nom du Fournisseur*
           </label>
           <input
             type="text"
@@ -48,19 +48,19 @@ export default function SupplierForm({ onSave, onCancel, existingSupplier }) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Service Type
+            Type de Service
           </label>
           <input
             type="text"
             value={service_type}
             onChange={(e) => setServiceType(e.target.value)}
             className="input"
-            placeholder="e.g., Hotel, Airline, Insurance"
+            placeholder="ex: Hôtel, Transport, Assurance"
           />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Contact Person
+            Personne de Contact
           </label>
           <input
             type="text"
@@ -82,7 +82,7 @@ export default function SupplierForm({ onSave, onCancel, existingSupplier }) {
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Phone
+            Téléphone
           </label>
           <input
             type="tel"
@@ -110,13 +110,15 @@ export default function SupplierForm({ onSave, onCancel, existingSupplier }) {
           onClick={onCancel}
           className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
         >
-          Cancel
+          Annuler
         </button>
         <button
           type="submit"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          {existingSupplier ? "Update Supplier" : "Create Supplier"}
+          {existingSupplier
+            ? "Mettre à jour le Fournisseur"
+            : "Créer le Fournisseur"}
         </button>
       </div>
     </form>

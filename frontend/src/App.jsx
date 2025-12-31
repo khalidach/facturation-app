@@ -56,13 +56,13 @@ export default function App() {
     );
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "treasury", label: "Treasury", icon: Landmark },
+    { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard }, // Changed from "Dashboard"
+    { id: "treasury", label: "Trésorerie", icon: Landmark },
     { id: "finance", label: "Finance", icon: CircleDollarSign },
     { id: "facturation", label: "Facturation", icon: FileText },
     { id: "contacts", label: "Contacts", icon: Users },
-    { id: "settings", label: "Settings", icon: SettingsIcon },
-    { id: "theme", label: "Theme", icon: Palette },
+    { id: "settings", label: "Paramètres", icon: SettingsIcon },
+    { id: "theme", label: "Thème", icon: Palette },
   ];
 
   return (

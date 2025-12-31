@@ -17,11 +17,10 @@ export default function ClientManager() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   const clientsPerPage = 10;
 
-  // Debounce search term
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-      setCurrentPage(1); // Reset to first page on new search
+      setCurrentPage(1);
     }, 300);
     return () => clearTimeout(handler);
   }, [searchTerm]);
@@ -44,7 +43,7 @@ export default function ClientManager() {
     mutationFn: window.electronAPI.createClient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
-      toast.success("Client created successfully!");
+      toast.success("Client créé avec succès !");
       setIsModalOpen(false);
     },
     onError: (error) => toast.error(error.message),
@@ -54,7 +53,7 @@ export default function ClientManager() {
     mutationFn: (data) => window.electronAPI.updateClient(data.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
-      toast.success("Client updated successfully!");
+      toast.success("Client mis à jour avec succès !");
       setIsModalOpen(false);
     },
     onError: (error) => toast.error(error.message),
@@ -64,7 +63,7 @@ export default function ClientManager() {
     mutationFn: window.electronAPI.deleteClient,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
-      toast.success("Client deleted successfully!");
+      toast.success("Client supprimé avec succès !");
       setClientToDelete(null);
     },
     onError: (error) => toast.error(error.message),
@@ -81,12 +80,11 @@ export default function ClientManager() {
   return (
     <>
       <div className="space-y-6">
-        {/* Header and Controls */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="relative w-full md:max-w-md">
             <input
               type="text"
-              placeholder="Search by Name, Email, Phone, ICE..."
+              placeholder="Rechercher par Nom, Email, Téléphone, ICE..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -100,16 +98,15 @@ export default function ClientManager() {
             className="inline-flex items-center justify-center w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-sm"
           >
             <Plus className="w-5 h-5 mr-2" />
-            New Client
+            Nouveau Client
           </button>
         </div>
 
-        {/* Client List Table */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                {["Name", "ICE", "Email", "Phone", "Actions"].map((h) => (
+                {["Nom", "ICE", "Email", "Téléphone", "Actions"].map((h) => (
                   <th
                     key={h}
                     className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
@@ -123,7 +120,7 @@ export default function ClientManager() {
               {isLoading ? (
                 <tr>
                   <td colSpan={5} className="text-center p-4">
-                    Loading...
+                    Chargement...
                   </td>
                 </tr>
               ) : clients.length === 0 ? (
@@ -131,10 +128,11 @@ export default function ClientManager() {
                   <td colSpan={5} className="text-center p-12">
                     <User className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                      No clients found
+                      Aucun client trouvé
                     </h3>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      Try adjusting your search or create a new client.
+                      Essayez d'ajuster votre recherche ou créez un nouveau
+                      client.
                     </p>
                   </td>
                 </tr>
@@ -192,14 +190,13 @@ export default function ClientManager() {
         </div>
       </div>
 
-      {/* Modals */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setEditingClient(null);
         }}
-        title={editingClient ? "Update Client" : "New Client"}
+        title={editingClient ? "Modifier le Client" : "Nouveau Client"}
         size="lg"
       >
         <ClientForm
@@ -213,8 +210,8 @@ export default function ClientManager() {
         isOpen={!!clientToDelete}
         onClose={() => setClientToDelete(null)}
         onConfirm={() => deleteClient(clientToDelete)}
-        title="Delete Client"
-        message="Are you sure you want to delete this client? This action cannot be undone."
+        title="Supprimer le Client"
+        message="Êtes-vous sûr de vouloir supprimer ce client ? Cette action est irréversible."
       />
     </>
   );

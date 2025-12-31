@@ -3,44 +3,44 @@ import StyleControls from "./StyleControls";
 
 const themeStructure = {
   header: {
-    label: "Header",
+    label: "En-tête",
     elements: {
-      container: "Main Container",
+      container: "Conteneur Principal",
       logo: "Logo",
-      agencyName: "Agency Name",
-      factureType: "Document Type (Facture/Devis)",
-      factureNumber: "Document Number",
+      agencyName: "Nom de l'Agence",
+      factureType: "Type de Document (Facture/Devis)",
+      factureNumber: "Numéro de Document",
       date: "Date",
       ice: "ICE",
     },
   },
   body: {
-    label: "Body",
+    label: "Corps",
     elements: {
-      container: "Main Container",
-      clientInfo_container: "Client Info Box",
-      clientInfo_clientName: "Client Name",
-      clientInfo_clientAddress: "Client Address",
-      clientInfo_clientICE: "Client ICE",
-      table_container: "Table Container",
-      table_header: "Table Header",
-      table_row: "Table Row",
-      table_cell: "Table Cell",
-      totals_container: "Totals Section Container",
-      totals_row: "Totals Row",
-      totals_totalRow: "Grand Total Row",
-      totals_label: "Total Label (e.g., 'TVA')",
-      totals_value: "Total Value (e.g., '120.00 MAD')",
-      totalInWords_container: "Total in Words Box",
+      container: "Conteneur Principal",
+      clientInfo_container: "Boîte Infos Client",
+      clientInfo_clientName: "Nom du Client",
+      clientInfo_clientAddress: "Adresse du Client",
+      clientInfo_clientICE: "ICE du Client",
+      table_container: "Conteneur Tableau",
+      table_header: "En-tête Tableau",
+      table_row: "Ligne Tableau",
+      table_cell: "Cellule Tableau",
+      totals_container: "Conteneur Section Totaux",
+      totals_row: "Ligne Totaux",
+      totals_totalRow: "Ligne Total Général",
+      totals_label: "Libellé Total (ex: 'TVA')",
+      totals_value: "Valeur Totale (ex: '120.00 MAD')",
+      totalInWords_container: "Boîte Total en Lettres",
       totalInWords_label: "'Arrêté la présente facture...'",
-      totalInWords_value: "The amount in words",
+      totalInWords_value: "Le montant en lettres",
     },
   },
   footer: {
-    label: "Footer",
+    label: "Pied de page",
     elements: {
-      container: "Main Container",
-      text: "Company Info Text",
+      container: "Conteneur Principal",
+      text: "Infos Entreprise",
     },
   },
 };
@@ -85,7 +85,7 @@ export default function ThemeEditor({ styles, onStyleChange }) {
 
   return (
     <div className="space-y-6">
-      {/* Section Selection */}
+      {/* Sélection de Section */}
       <div className="flex space-x-2 border-b">
         {Object.keys(themeStructure).map((key) => (
           <button
@@ -106,13 +106,13 @@ export default function ThemeEditor({ styles, onStyleChange }) {
       </div>
 
       <div className="space-y-4">
-        {/* Element Selection */}
+        {/* Sélection d'Élément */}
         <div>
           <label
             htmlFor="element-select"
             className="block text-sm font-medium text-gray-700 dark:text-gray-300"
           >
-            Select Element to Style
+            Sélectionner l'élément à styliser
           </label>
           <select
             id="element-select"
@@ -130,7 +130,7 @@ export default function ThemeEditor({ styles, onStyleChange }) {
           </select>
         </div>
 
-        {/* Style Controls */}
+        {/* Contrôles de Style */}
         <div className="p-4 border rounded-lg bg-gray-50 dark:bg-gray-700/50">
           <StyleControls
             elementStyles={getStylesForElement(activeSection, activeElement)}
@@ -140,10 +140,10 @@ export default function ThemeEditor({ styles, onStyleChange }) {
           />
         </div>
 
-        {/* Custom CSS */}
+        {/* CSS Personnalisé */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Custom CSS for {themeStructure[activeSection].label}
+            CSS personnalisé pour {themeStructure[activeSection].label}
           </label>
           <textarea
             value={styles[activeSection]?.customCss || ""}
@@ -152,7 +152,7 @@ export default function ThemeEditor({ styles, onStyleChange }) {
             }
             className="mt-1 block w-full input font-mono text-sm"
             rows={5}
-            placeholder={`/* Example: */\n.header-container {\n  border-radius: 8px;\n}`}
+            placeholder={`/* Exemple : */\n.header-container {\n  border-radius: 8px;\n}`}
           />
         </div>
       </div>

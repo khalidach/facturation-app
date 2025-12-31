@@ -36,14 +36,14 @@ export default function StyleControls({ elementStyles = {}, onStyleChange }) {
   return (
     <div className="grid grid-cols-2 gap-4">
       <StyleInput
-        label="Text Color"
+        label="Couleur du texte"
         type="color"
         name="color"
         value={elementStyles.color}
         onChange={handleChange}
       />
       <StyleInput
-        label="Background Color"
+        label="Couleur de fond"
         type="color"
         name="backgroundColor"
         value={elementStyles.backgroundColor}
@@ -51,18 +51,18 @@ export default function StyleControls({ elementStyles = {}, onStyleChange }) {
       />
 
       <StyleInput
-        label="Font Size"
+        label="Taille de police"
         type="text"
         name="fontSize"
-        placeholder="e.g., 14px"
+        placeholder="ex: 14px"
         value={elementStyles.fontSize}
         onChange={handleChange}
       />
       <StyleInput
-        label="Font Weight"
+        label="Épaisseur (Weight)"
         type="text"
         name="fontWeight"
-        placeholder="e.g., bold, 500"
+        placeholder="ex: bold, 500"
         value={elementStyles.fontWeight}
         onChange={handleChange}
       />
@@ -71,55 +71,55 @@ export default function StyleControls({ elementStyles = {}, onStyleChange }) {
         label="Padding"
         type="text"
         name="padding"
-        placeholder="e.g., 8px"
+        placeholder="ex: 8px"
         value={elementStyles.padding}
         onChange={handleChange}
       />
       <StyleInput
-        label="Margin"
+        label="Marge"
         type="text"
         name="margin"
-        placeholder="e.g., 8px 0"
+        placeholder="ex: 8px 0"
         value={elementStyles.margin}
         onChange={handleChange}
       />
 
       <StyleInput
-        label="Border"
+        label="Bordure"
         type="text"
         name="border"
-        placeholder="e.g., 1px solid #000"
+        placeholder="ex: 1px solid #000"
         value={elementStyles.border}
         onChange={handleChange}
       />
       <StyleInput
-        label="Border Radius"
+        label="Rayon (Radius)"
         type="text"
         name="borderRadius"
-        placeholder="e.g., 4px"
+        placeholder="ex: 4px"
         value={elementStyles.borderRadius}
         onChange={handleChange}
       />
 
       <StyleInput
-        label="Width"
+        label="Largeur"
         type="text"
         name="width"
-        placeholder="e.g., 100px, 50%"
+        placeholder="ex: 100px, 50%"
         value={elementStyles.width}
         onChange={handleChange}
       />
       <StyleInput
-        label="Height"
+        label="Hauteur"
         type="text"
         name="height"
-        placeholder="e.g., 100px, auto"
+        placeholder="ex: 100px, auto"
         value={elementStyles.height}
         onChange={handleChange}
       />
 
       <StyleInput
-        label="Opacity"
+        label="Opacité"
         type="number"
         name="opacity"
         min="0"
@@ -130,7 +130,7 @@ export default function StyleControls({ elementStyles = {}, onStyleChange }) {
       />
       <div className="col-span-2">
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
-          Text Align
+          Alignement texte
         </label>
         <select
           name="textAlign"
@@ -138,10 +138,10 @@ export default function StyleControls({ elementStyles = {}, onStyleChange }) {
           onChange={handleChange}
           className="mt-1 block w-full text-sm rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 px-2 py-1"
         >
-          <option value="">Default</option>
-          <option value="left">Left</option>
-          <option value="center">Center</option>
-          <option value="right">Right</option>
+          <option value="">Par défaut</option>
+          <option value="left">Gauche</option>
+          <option value="center">Centre</option>
+          <option value="right">Droite</option>
         </select>
       </div>
     </div>

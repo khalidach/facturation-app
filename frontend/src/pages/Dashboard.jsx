@@ -7,17 +7,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Calendar,
-  Layers,
-  Users,
-  CreditCard,
-  Clock,
   RefreshCw,
   Zap,
 } from "lucide-react";
 
 export default function Dashboard() {
   const [range, setRange] = useState("month");
-  const queryClient = useQueryClient();
 
   // Helper to calculate date ranges for the backend query
   const getDates = () => {
@@ -62,13 +57,11 @@ export default function Dashboard() {
       }),
   });
 
-  // Calculate margin with safety checks
   const margin = useMemo(() => {
     if (!stats?.summary?.income || stats.summary.income === 0) return 0;
     return ((stats.summary.profit / stats.summary.income) * 100).toFixed(1);
   }, [stats]);
 
-  // Merge and sort activities for the activity feed
   const combinedActivities = useMemo(() => {
     const incomes = (recentIncomes?.data || []).map((item) => ({
       ...item,
@@ -96,34 +89,42 @@ export default function Dashboard() {
     );
   }
 
+  // Translated Labels
+  const rangeLabels = {
+    day: "Jour",
+    week: "Semaine",
+    month: "Mois",
+    year: "Année",
+  };
+
   const cards = [
     {
-      title: "Total Revenue",
+      title: "Chiffre d'Affaires",
       value: stats?.summary?.income || 0,
       icon: TrendingUp,
-      trend: stats?.summary?.income > 0 ? "Active Revenue" : "Awaiting Data",
+      trend: stats?.summary?.income > 0 ? "Revenu Actif" : "En attente",
       color: "blue",
-      details: "Gross sales for current range",
+      details: "Ventes brutes pour la période",
     },
     {
-      title: "Total Expenses",
+      title: "Dépenses Totales",
       value: stats?.summary?.expense || 0,
       icon: TrendingDown,
-      trend: stats?.summary?.expense > 0 ? "Operational Costs" : "No Spend Yet",
+      trend:
+        stats?.summary?.expense > 0 ? "Coûts Opérationnels" : "Aucun achat",
       color: "rose",
-      details: "Outflow of capital",
+      details: "Sortie de capitaux",
     },
     {
-      title: "Net Profit",
+      title: "Bénéfice Net",
       value: stats?.summary?.profit || 0,
       icon: Wallet,
-      trend: margin + "% Margin",
+      trend: "Marge de " + margin + "%",
       color: "emerald",
-      details: "Net liquidity gained",
+      details: "Liquidité nette gagnée",
     },
   ];
 
-  // Helper to generate a simple SVG line chart path
   const generateAreaPath = (data, type, width, height) => {
     if (!data || data.length === 0) return "";
     const maxVal = Math.max(
@@ -142,17 +143,16 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white">
-            Financial Dashboard
+            Tableau de Bord
           </h1>
           <div className="flex items-center mt-2 text-gray-500 font-medium">
             <Calendar className="w-4 h-4 mr-2" />
             <span>
-              Real-time intelligence •{" "}
-              {new Date().toLocaleDateString(undefined, {
+              Intelligence en temps réel •{" "}
+              {new Date().toLocaleDateString("fr-FR", {
                 month: "long",
                 year: "numeric",
               })}
@@ -163,7 +163,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Range Selector */}
         <div className="flex bg-white/50 dark:bg-gray-800/50 backdrop-blur-md border rounded-2xl p-1.5">
           {["day", "week", "month", "year"].map((r) => (
             <button
@@ -175,13 +174,12 @@ export default function Dashboard() {
                   : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
             >
-              {r}
+              {rangeLabels[r]}
             </button>
           ))}
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div
         className={`grid grid-cols-1 md:grid-cols-3 gap-6 ${
           isActuallyEmpty ? "opacity-40 grayscale" : ""
@@ -229,25 +227,24 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Analytics Section */}
       <div
         className={`grid grid-cols-1 lg:grid-cols-3 gap-8 ${
           isActuallyEmpty ? "opacity-40 grayscale" : ""
         }`}
       >
-        {/* Main Chart Card */}
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-10 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="flex items-center justify-between mb-10">
             <h3 className="text-2xl font-black text-gray-900 dark:text-white">
-              Cash Flow Analytics
+              Flux de Trésorerie
             </h3>
             <div className="flex gap-4">
               <div className="flex items-center text-xs font-bold text-gray-400">
-                <div className="w-3 h-3 bg-blue-500 rounded-full mr-2" /> Income
+                <div className="w-3 h-3 bg-blue-500 rounded-full mr-2" />{" "}
+                Revenus
               </div>
               <div className="flex items-center text-xs font-bold text-gray-400">
                 <div className="w-3 h-3 bg-rose-500 rounded-full mr-2" />{" "}
-                Expenses
+                Dépenses
               </div>
             </div>
           </div>
@@ -259,7 +256,6 @@ export default function Dashboard() {
                 viewBox="0 0 800 200"
                 preserveAspectRatio="none"
               >
-                {/* Income Path */}
                 <path
                   d={generateAreaPath(stats.chartData, "income", 800, 200)}
                   fill="none"
@@ -268,7 +264,6 @@ export default function Dashboard() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
-                {/* Expense Path */}
                 <path
                   d={generateAreaPath(stats.chartData, "expense", 800, 200)}
                   fill="none"
@@ -280,20 +275,19 @@ export default function Dashboard() {
               </svg>
             ) : (
               <div className="flex h-full items-center justify-center bg-gray-50 dark:bg-gray-700/30 rounded-[2rem] border-2 border-dashed border-gray-200 dark:border-gray-600 text-gray-400 font-medium">
-                No historical data for this period
+                Aucune donnée historique pour cette période
               </div>
             )}
           </div>
         </div>
 
-        {/* Margin/Efficiency Card */}
         <div className="bg-gradient-to-br from-indigo-700 to-blue-900 p-10 rounded-[2.5rem] text-white shadow-xl flex flex-col justify-between">
           <div>
             <div className="p-3 bg-white/10 rounded-2xl w-fit mb-6">
               <Zap className="w-6 h-6 text-blue-300" />
             </div>
             <h4 className="font-black text-[10px] uppercase tracking-widest mb-2 opacity-60">
-              Net Margin Efficiency
+              Efficacité de la Marge
             </h4>
             <p className="text-6xl font-black tracking-tighter">{margin}%</p>
           </div>
@@ -301,7 +295,7 @@ export default function Dashboard() {
           <div className="mt-10">
             <div className="flex justify-between text-[10px] font-black uppercase mb-2">
               <span>Performance</span>
-              <span>Target: 15%</span>
+              <span>Objectif: 15%</span>
             </div>
             <div className="h-3 w-full bg-white/10 rounded-full overflow-hidden">
               <div
@@ -318,21 +312,20 @@ export default function Dashboard() {
               />
             </div>
             <p className="mt-6 text-sm text-blue-100 font-medium leading-relaxed">
-              Your current margin indicates that for every dirham of revenue,
-              you retain{" "}
+              Votre marge actuelle indique que pour chaque dirham de revenu,
+              vous conservez{" "}
               {(
                 (stats?.summary?.profit || 0) / (stats?.summary?.income || 1)
               ).toFixed(2)}{" "}
-              MAD as profit.
+              MAD de bénéfice.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Activity Feed Snippet */}
       <div className="bg-white dark:bg-gray-800 p-10 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700">
         <h3 className="text-xl font-black mb-8 text-gray-900 dark:text-white">
-          Recent Movements
+          Mouvements Récents
         </h3>
         <div className="space-y-4">
           {combinedActivities.length > 0 ? (
@@ -360,7 +353,7 @@ export default function Dashboard() {
                       {act.description}
                     </p>
                     <p className="text-xs text-gray-400 font-medium">
-                      {new Date(act.date).toLocaleDateString()}
+                      {new Date(act.date).toLocaleDateString("fr-FR")}
                     </p>
                   </div>
                 </div>
@@ -371,14 +364,14 @@ export default function Dashboard() {
                       : "text-red-600"
                   }`}
                 >
-                  {act.displayType === "income" ? "+" : "-"}
+                  {act.displayType === "income" ? "+" : "-"}{" "}
                   {act.amount.toLocaleString()} MAD
                 </div>
               </div>
             ))
           ) : (
             <p className="text-center text-gray-400 font-medium py-4 italic">
-              No recent activity detected.
+              Aucune activité récente détectée.
             </p>
           )}
         </div>

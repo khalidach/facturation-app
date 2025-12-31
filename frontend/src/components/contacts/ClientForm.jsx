@@ -36,7 +36,7 @@ export default function ClientForm({ onSave, onCancel, existingClient }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Client Name*
+            Nom du Client*
           </label>
           <input
             type="text"
@@ -70,7 +70,7 @@ export default function ClientForm({ onSave, onCancel, existingClient }) {
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Phone
+            Téléphone
           </label>
           <input
             type="tel"
@@ -81,7 +81,7 @@ export default function ClientForm({ onSave, onCancel, existingClient }) {
         </div>
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Address
+            Adresse
           </label>
           <input
             type="text"
@@ -109,13 +109,13 @@ export default function ClientForm({ onSave, onCancel, existingClient }) {
           onClick={onCancel}
           className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
         >
-          Cancel
+          Annuler
         </button>
         <button
           type="submit"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          {existingClient ? "Update Client" : "Create Client"}
+          {existingClient ? "Mettre à jour le Client" : "Créer le Client"}
         </button>
       </div>
     </form>
