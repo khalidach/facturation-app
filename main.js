@@ -12,7 +12,7 @@ function createWindow() {
     height: 950,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"), // Ensure this path is accurate
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -32,7 +32,6 @@ function createWindow() {
 ipcMain.handle("db:getDashboardStats", (event, args) => {
   const { startDate, endDate } = args;
   try {
-    // Filter by is_cashed = 1 for accurate financial health
     const incomeStats = db
       .prepare(
         "SELECT SUM(amount) as total FROM incomes WHERE date BETWEEN ? AND ? AND is_cashed = 1"
@@ -198,7 +197,6 @@ ipcMain.handle("db:deleteTransaction", (event, { id, type }) => {
 // --- 3. TREASURY & TRANSFERS ---
 ipcMain.handle("db:getTreasuryStats", () => {
   try {
-    // Bank balances
     const bankIncome =
       db
         .prepare(
@@ -224,7 +222,6 @@ ipcMain.handle("db:getTreasuryStats", () => {
         )
         .get().total || 0;
 
-    // Cash balances
     const cashIncome =
       db
         .prepare(
@@ -309,6 +306,16 @@ ipcMain.handle("db:getTransfers", (event, { page = 1, limit = 10 }) => {
     };
   } catch (error) {
     console.error("Error getting transfers:", error);
+    throw error;
+  }
+});
+
+ipcMain.handle("db:deleteTransfer", (event, id) => {
+  try {
+    db.prepare("DELETE FROM transfers WHERE id = ?").run(id);
+    return { success: true };
+  } catch (error) {
+    console.error("Database Error deleteTransfer:", error);
     throw error;
   }
 });

@@ -10,11 +10,12 @@ import {
   Clock,
   Plus,
   Minus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
-// Fixed: Using the '@' alias for consistent component resolution
 import Modal from "@/components/Modal.jsx";
 import PaginationControls from "@/components/PaginationControls.jsx";
+import ConfirmationModal from "@/components/modal/ConfirmationModal.jsx";
 
 export default function Treasury() {
   const queryClient = useQueryClient();
@@ -22,6 +23,7 @@ export default function Treasury() {
   const [isAddBalanceModalOpen, setIsAddBalanceModalOpen] = useState(false);
   const [isRemoveBalanceModalOpen, setIsRemoveBalanceModalOpen] =
     useState(false);
+  const [transferToDelete, setTransferToDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   const [formData, setFormData] = useState({
@@ -66,6 +68,17 @@ export default function Treasury() {
       setIsTransferModalOpen(false);
       setFormData({ ...formData, amount: "" });
     },
+  });
+
+  const { mutate: deleteTransfer } = useMutation({
+    mutationFn: (id) => window.electronAPI.deleteTransfer(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
+      queryClient.invalidateQueries({ queryKey: ["transfers"] });
+      toast.success("Transfer deleted successfully");
+      setTransferToDelete(null);
+    },
+    onError: (err) => toast.error(err.message),
   });
 
   const { mutate: addBalance, isPending: isAddingBalance } = useMutation({
@@ -255,13 +268,14 @@ export default function Treasury() {
                 <th className="px-8 py-4">Movement</th>
                 <th className="px-8 py-4">Description</th>
                 <th className="px-8 py-4 text-right">Amount</th>
+                <th className="px-8 py-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
               {transfersData?.data.map((t) => (
                 <tr
                   key={t.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700/20"
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700/20 group"
                 >
                   <td className="px-8 py-4 text-sm font-medium">
                     {new Date(t.date).toLocaleDateString()}
@@ -283,12 +297,20 @@ export default function Treasury() {
                   <td className="px-8 py-4 text-right font-black text-gray-900 dark:text-white">
                     {t.amount.toLocaleString()} MAD
                   </td>
+                  <td className="px-8 py-4 text-center">
+                    <button
+                      onClick={() => setTransferToDelete(t.id)}
+                      className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {transfersData?.data.length === 0 && (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="p-12 text-center text-gray-400 italic"
                   >
                     No transfer history found.
@@ -518,7 +540,6 @@ export default function Treasury() {
         </form>
       </Modal>
 
-      {/* Remove Balance Modal */}
       <Modal
         isOpen={isRemoveBalanceModalOpen}
         onClose={() => setIsRemoveBalanceModalOpen(false)}
@@ -653,6 +674,14 @@ export default function Treasury() {
           </button>
         </form>
       </Modal>
+
+      <ConfirmationModal
+        isOpen={!!transferToDelete}
+        onClose={() => setTransferToDelete(null)}
+        onConfirm={() => deleteTransfer(transferToDelete)}
+        title="Delete Transfer"
+        message="Are you sure you want to delete this internal transfer entry? This will update your account balances immediately."
+      />
     </div>
   );
 }
