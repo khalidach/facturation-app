@@ -22,19 +22,14 @@ export default function Facturation() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
   const facturesPerPage = 10;
 
-  // Délai pour la recherche
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-      setCurrentPage(1); // Retour à la première page lors d'une nouvelle recherche
+      setCurrentPage(1);
     }, 300);
-
-    return () => {
-      clearTimeout(handler);
-    };
+    return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Réinitialiser la page lors du changement de tri
   useEffect(() => {
     setCurrentPage(1);
   }, [sortBy]);
@@ -104,6 +99,8 @@ export default function Facturation() {
             const canvas = await html2canvas(input, {
               scale: 2,
               useCORS: true,
+              logging: false,
+              width: 794, // Approx 210mm in pixels at 96 DPI
             });
             const imgData = canvas.toDataURL("image/png");
             const pdf = new jsPDF("p", "mm", "a4");
@@ -122,8 +119,8 @@ export default function Facturation() {
           }
         }
       };
-
-      const timer = setTimeout(generatePdf, 100);
+      // Increased timeout to ensure full rendering
+      const timer = setTimeout(generatePdf, 300);
       return () => clearTimeout(timer);
     }
   }, [factureToPreview]);
@@ -151,12 +148,10 @@ export default function Facturation() {
             }}
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-sm transition-colors"
           >
-            <Plus className="w-5 h-5 mr-2" />
-            Nouveau Document
+            <Plus className="w-5 h-5 mr-2" /> Nouveau Document
           </button>
         </div>
 
-        {/* Contrôles de recherche et de filtrage */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="relative w-full md:max-w-md">
             <input
@@ -212,10 +207,6 @@ export default function Facturation() {
                     <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
                       Aucun document trouvé
                     </h3>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      Essayez d'ajuster votre recherche ou créez un nouveau
-                      document.
-                    </p>
                   </td>
                 </tr>
               ) : (
@@ -243,8 +234,7 @@ export default function Facturation() {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => handleDownloadPDF(facture)}
-                          className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                          title="Télécharger PDF"
+                          className="p-2 text-gray-400 hover:text-green-600 rounded-lg"
                         >
                           <Download className="w-4 h-4" />
                         </button>
@@ -253,15 +243,13 @@ export default function Facturation() {
                             setEditingFacture(facture);
                             setIsModalOpen(true);
                           }}
-                          className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                          title="Modifier"
+                          className="p-2 text-gray-400 hover:text-blue-600 rounded-lg"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setFactureToDelete(facture.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                          title="Supprimer"
+                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -308,9 +296,17 @@ export default function Facturation() {
         />
       </div>
 
-      {/* Conteneur caché pour la génération du PDF */}
+      {/* FIXED PDF CONTAINER: Forced width and specific positioning */}
       {factureToPreview && (
-        <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+        <div
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: 0,
+            width: "210mm",
+            backgroundColor: "white",
+          }}
+        >
           <div id={`pdf-preview-${factureToPreview.id}`}>
             <FacturePDF facture={factureToPreview} />
           </div>
