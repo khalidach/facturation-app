@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-// localStorage keys
+// Clés localStorage
 const STORAGE_KEY = "facturation-app-license";
 
 export default function Verification({ onSuccess }) {
@@ -21,15 +21,15 @@ export default function Verification({ onSuccess }) {
   });
 
   const handleVerify = async () => {
-    // 1. DEFENSIVE CHECK: Ensure we are inside Electron
+    // 1. VÉRIFICATION DÉFENSIVE : S'assurer que nous sommes dans Electron
     if (!window.electronAPI) {
       setVerificationStatus({
         checked: true,
         valid: false,
         message:
-          "Critical Error: Electron Bridge not found. Please launch the application via the desktop launcher, not a web browser.",
+          "Erreur Critique : Pont Electron non trouvé. Veuillez lancer l'application via le lanceur de bureau, et non un navigateur web.",
       });
-      toast.error("Environment mismatch detected.");
+      toast.error("Incompatibilité d'environnement détectée.");
       return;
     }
 
@@ -37,7 +37,7 @@ export default function Verification({ onSuccess }) {
     setVerificationStatus({ checked: false, valid: false, message: "" });
 
     try {
-      // 2. CALL THE API
+      // 2. APPEL DE L'API
       const data = await window.electronAPI.licenseVerify(licenseCode.trim());
 
       if (data.success) {
@@ -47,28 +47,28 @@ export default function Verification({ onSuccess }) {
           message: data.message,
         });
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ valid: true }));
-        toast.success(data.message || "Application activated!");
+        toast.success(data.message || "Application activée !");
 
         if (onSuccess) {
-          // Delay success transition slightly for UX
+          // Léger délai pour l'UX avant la transition
           setTimeout(onSuccess, 1500);
         }
       } else {
         setVerificationStatus({
           checked: true,
           valid: false,
-          message: data.message || "Invalid license code.",
+          message: data.message || "Code de licence invalide.",
         });
-        toast.error(data.message || "Invalid license code.");
+        toast.error(data.message || "Code de licence invalide.");
       }
     } catch (error) {
-      console.error("Verification error:", error);
+      console.error("Erreur de vérification :", error);
       setVerificationStatus({
         checked: true,
         valid: false,
-        message: `Connection Error: ${error.message}`,
+        message: `Erreur de Connexion : ${error.message}`,
       });
-      toast.error("Failed to reach verification server.");
+      toast.error("Impossible de joindre le serveur de vérification.");
     } finally {
       setIsLoading(false);
     }
@@ -93,12 +93,12 @@ export default function Verification({ onSuccess }) {
 
   const getStatusMessage = () => {
     if (!window.electronAPI) {
-      return "Environment Error: This application must be run inside its Electron container to access system security features.";
+      return "Erreur d'Environnement : Cette application doit être exécutée dans son conteneur Electron pour accéder aux fonctionnalités de sécurité du système.";
     }
     if (verificationStatus.message) {
       return verificationStatus.message;
     }
-    return "Please enter your license code to activate the application.";
+    return "Veuillez saisir votre code de licence pour activer l'application.";
   };
 
   return (
@@ -107,7 +107,7 @@ export default function Verification({ onSuccess }) {
         <div className="flex justify-center mb-8">{getStatusIcon()}</div>
 
         <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3 tracking-tight">
-          System Activation
+          Activation du Système
         </h2>
 
         <p
@@ -137,14 +137,16 @@ export default function Verification({ onSuccess }) {
               className="w-full flex items-center justify-center px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 shadow-xl shadow-blue-500/20 disabled:bg-gray-300 disabled:shadow-none transition-all active:scale-95"
             >
               <ShieldCheck className="w-6 h-6 mr-2" />
-              {isLoading ? "Verifying Authority..." : "Activate Now"}
+              {isLoading
+                ? "Vérification de l'Autorité..."
+                : "Activer Maintenant"}
             </button>
           </div>
         )}
 
         {!window.electronAPI && (
           <div className="p-4 bg-rose-50 dark:bg-rose-900/20 rounded-2xl text-rose-700 dark:text-rose-400 text-xs font-bold uppercase tracking-widest">
-            Desktop Container Required
+            Conteneur de Bureau Requis
           </div>
         )}
       </div>
