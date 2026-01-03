@@ -58,6 +58,27 @@ export default function Facturation() {
   const factures = facturesResponse?.data ?? [];
   const pagination = facturesResponse?.pagination;
 
+  // Fonction pour déterminer le statut de paiement
+  const getPaymentStatus = (total, totalPaid) => {
+    if (totalPaid <= 0) {
+      return {
+        label: "Impayé",
+        class: "bg-rose-100 text-rose-600 dark:bg-rose-900/20",
+      };
+    }
+    if (totalPaid < total - 0.1) {
+      // Marge d'erreur pour les flottants
+      return {
+        label: "Partiel",
+        class: "bg-amber-100 text-amber-600 dark:bg-amber-900/20",
+      };
+    }
+    return {
+      label: "Payé",
+      class: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20",
+    };
+  };
+
   const { mutate: createFacture } = useMutation({
     mutationFn: window.electronAPI.createFacture,
     onSuccess: () => {
@@ -186,23 +207,29 @@ export default function Facturation() {
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                {["N°", "Type", "Client", "Date", "Total", "Actions"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-widest"
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+                {[
+                  "N°",
+                  "Type",
+                  "Client",
+                  "Date",
+                  "Total",
+                  "Paiement",
+                  "Actions",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-widest"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="text-center p-10 italic text-gray-500 font-bold animate-pulse"
                   >
                     Synchronisation de la base...
@@ -210,7 +237,7 @@ export default function Facturation() {
                 </tr>
               ) : factures.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center p-12">
+                  <td colSpan={7} className="text-center p-12">
                     <FileText className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
                       Aucun document trouvé
@@ -218,69 +245,83 @@ export default function Facturation() {
                   </td>
                 </tr>
               ) : (
-                factures.map((facture) => (
-                  <tr
-                    key={facture.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100">
-                      {facture.facture_number}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-black uppercase text-gray-400">
-                      <span
-                        className={`px-2 py-1 rounded-md ${
-                          facture.type === "facture"
-                            ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20"
-                            : "bg-amber-50 text-amber-600 dark:bg-amber-900/20"
-                        }`}
-                      >
-                        {facture.type === "facture" ? "Facture" : "Devis"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700 dark:text-gray-300">
-                      {facture.clientName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-400">
-                      {new Date(facture.date).toLocaleDateString("fr-FR")}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-white">
-                      {facture.total.toLocaleString()}{" "}
-                      <span className="text-[10px] opacity-40">MAD</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-1">
-                        <button
-                          onClick={() => setFactureForPayment(facture)}
-                          className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all"
-                          title="Gérer les règlements"
+                factures.map((facture) => {
+                  const status = getPaymentStatus(
+                    facture.total,
+                    facture.totalPaid
+                  );
+                  return (
+                    <tr
+                      key={facture.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100">
+                        {facture.facture_number}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-xs font-black uppercase text-gray-400">
+                        <span
+                          className={`px-2 py-1 rounded-md ${
+                            facture.type === "facture"
+                              ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20"
+                              : "bg-amber-50 text-amber-600 dark:bg-amber-900/20"
+                          }`}
                         >
-                          <CreditCard className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDownloadPDF(facture)}
-                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all"
+                          {facture.type === "facture" ? "Facture" : "Devis"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700 dark:text-gray-300">
+                        {facture.clientName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-400">
+                        {new Date(facture.date).toLocaleDateString("fr-FR")}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-white">
+                        {facture.total.toLocaleString()}{" "}
+                        <span className="text-[10px] opacity-40">MAD</span>
+                      </td>
+                      {/* Nouvelle cellule Statut */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${status.class}`}
                         >
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingFacture(facture);
-                            setIsModalOpen(true);
-                          }}
-                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setFactureToDelete(facture.id)}
-                          className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => setFactureForPayment(facture)}
+                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all"
+                            title="Gérer les règlements"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDownloadPDF(facture)}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingFacture(facture);
+                              setIsModalOpen(true);
+                            }}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setFactureToDelete(facture.id)}
+                            className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

@@ -382,6 +382,7 @@ ipcMain.handle("db:deleteTransfer", (event, id) => {
 });
 
 // --- 4. FACTURATION (INVOICES & QUOTES) ---
+// Remplacez le handler db:getFactures dans main.js
 ipcMain.handle("db:getFactures", (event, args) => {
   const { page = 1, limit = 10, search = "", sortBy = "newest" } = args;
   const offset = (page - 1) * limit;
@@ -399,11 +400,16 @@ ipcMain.handle("db:getFactures", (event, args) => {
     const count = db
       .prepare(`SELECT COUNT(*) as totalCount FROM factures ${whereClause}`)
       .get(...params);
+
+    // Modification ici : Ajout du calcul du totalPaid via une sous-requête sur la table incomes
     const data = db
       .prepare(
-        `SELECT * FROM factures ${whereClause} ${orderBy} LIMIT ? OFFSET ?`
+        `SELECT *, 
+        (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE facture_id = factures.id) as totalPaid 
+        FROM factures ${whereClause} ${orderBy} LIMIT ? OFFSET ?`
       )
       .all(...params, limit, offset);
+
     return {
       data,
       pagination: {
