@@ -98,9 +98,9 @@ ipcMain.handle(
 
     if (search) {
       where +=
-        " AND (description LIKE ? OR category LIKE ? OR contact_person LIKE ?)";
+        " AND (description LIKE ? OR category LIKE ? OR contact_person LIKE ? OR cheque_number LIKE ? OR virement_number LIKE ?)";
       const t = `%${search}%`;
-      params.push(t, t, t);
+      params.push(t, t, t, t, t);
     }
 
     try {
@@ -131,13 +131,22 @@ ipcMain.handle(
 ipcMain.handle("db:createTransaction", (event, data) => {
   const tableName = data.type === "expense" ? "expenses" : "incomes";
   try {
-    const stmt = db.prepare(`
-      INSERT INTO ${tableName} 
-      (amount, description, category, contact_person, date, payment_method, is_cashed, in_bank) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const info = stmt.run(
+    const columns = [
+      "amount",
+      "description",
+      "category",
+      "contact_person",
+      "date",
+      "payment_method",
+      "is_cashed",
+      "in_bank",
+      "cheque_number",
+      "bank_name",
+      "virement_number",
+      "bank_from",
+      "bank_to",
+    ];
+    const values = [
       data.amount,
       data.description,
       data.category,
@@ -145,8 +154,26 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       data.date,
       data.payment_method || "cash",
       data.is_cashed ? 1 : 0,
-      data.in_bank ? 1 : 0
+      data.in_bank ? 1 : 0,
+      data.cheque_number || null,
+      data.bank_name || null,
+      data.virement_number || null,
+      data.bank_from || null,
+      data.bank_to || null,
+    ];
+
+    if (tableName === "incomes") {
+      columns.push("facture_id");
+      values.push(data.facture_id || null);
+    }
+
+    const placeholders = columns.map(() => "?").join(", ");
+    const stmt = db.prepare(
+      `INSERT INTO ${tableName} (${columns.join(
+        ", "
+      )}) VALUES (${placeholders})`
     );
+    const info = stmt.run(...values);
 
     return { id: info.lastInsertRowid, ...data };
   } catch (error) {
@@ -158,13 +185,22 @@ ipcMain.handle("db:createTransaction", (event, data) => {
 ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
   const tableName = data.type === "expense" ? "expenses" : "incomes";
   try {
-    const stmt = db.prepare(`
-      UPDATE ${tableName} 
-      SET amount=?, description=?, category=?, contact_person=?, date=?, payment_method=?, is_cashed=?, in_bank=? 
-      WHERE id=?
-    `);
-
-    stmt.run(
+    const columns = [
+      "amount=?",
+      "description=?",
+      "category=?",
+      "contact_person=?",
+      "date=?",
+      "payment_method=?",
+      "is_cashed=?",
+      "in_bank=?",
+      "cheque_number=?",
+      "bank_name=?",
+      "virement_number=?",
+      "bank_from=?",
+      "bank_to=?",
+    ];
+    const values = [
       data.amount,
       data.description,
       data.category,
@@ -173,6 +209,20 @@ ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
       data.payment_method,
       data.is_cashed ? 1 : 0,
       data.in_bank ? 1 : 0,
+      data.cheque_number || null,
+      data.bank_name || null,
+      data.virement_number || null,
+      data.bank_from || null,
+      data.bank_to || null,
+    ];
+
+    if (tableName === "incomes") {
+      columns.push("facture_id=?");
+      values.push(data.facture_id || null);
+    }
+
+    db.prepare(`UPDATE ${tableName} SET ${columns.join(", ")} WHERE id=?`).run(
+      ...values,
       id
     );
 
@@ -190,6 +240,17 @@ ipcMain.handle("db:deleteTransaction", (event, { id, type }) => {
     return { success: true };
   } catch (error) {
     console.error("Database Error deleteTransaction:", error);
+    throw error;
+  }
+});
+
+ipcMain.handle("db:getPaymentsByFacture", (event, factureId) => {
+  try {
+    return db
+      .prepare("SELECT * FROM incomes WHERE facture_id = ? ORDER BY date DESC")
+      .all(factureId);
+  } catch (error) {
+    console.error("Error getting payments by facture:", error);
     throw error;
   }
 });

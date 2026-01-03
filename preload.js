@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   updateFacture: (id, data) =>
     ipcRenderer.invoke("db:updateFacture", { id, data }),
   deleteFacture: (id) => ipcRenderer.invoke("db:deleteFacture", id),
+  getPaymentsByFacture: (factureId) =>
+    ipcRenderer.invoke("db:getPaymentsByFacture", factureId),
 
   // Settings & Theme
   getSettings: () => ipcRenderer.invoke("db:getSettings"),

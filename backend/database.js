@@ -54,6 +54,12 @@ CREATE TABLE IF NOT EXISTS incomes (
     payment_method TEXT DEFAULT 'cash',
     is_cashed INTEGER DEFAULT 1,
     in_bank INTEGER DEFAULT 0,
+    facture_id INTEGER,
+    cheque_number TEXT,
+    bank_name TEXT,
+    virement_number TEXT,
+    bank_from TEXT,
+    bank_to TEXT,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `;
@@ -69,6 +75,11 @@ CREATE TABLE IF NOT EXISTS expenses (
     payment_method TEXT DEFAULT 'cash',
     is_cashed INTEGER DEFAULT 1,
     in_bank INTEGER DEFAULT 0,
+    cheque_number TEXT,
+    bank_name TEXT,
+    virement_number TEXT,
+    bank_from TEXT,
+    bank_to TEXT,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `;
@@ -102,10 +113,17 @@ db.exec(createSuppliersTable);
 
 /**
  * SELF-HEALING: Check and add missing columns on every startup
- * This ensures that even if migrations failed previously, the app fixes itself.
  */
 function ensureColumns() {
   const financeTables = ["incomes", "expenses"];
+  const newCols = [
+    { name: "cheque_number", type: "TEXT" },
+    { name: "bank_name", type: "TEXT" },
+    { name: "virement_number", type: "TEXT" },
+    { name: "bank_from", type: "TEXT" },
+    { name: "bank_to", type: "TEXT" },
+  ];
+
   financeTables.forEach((table) => {
     try {
       const columns = db.prepare(`PRAGMA table_info(${table})`).all();
@@ -122,55 +140,36 @@ function ensureColumns() {
       if (!columnNames.includes("in_bank")) {
         db.exec(`ALTER TABLE ${table} ADD COLUMN in_bank INTEGER DEFAULT 0`);
       }
+      if (table === "incomes" && !columnNames.includes("facture_id")) {
+        db.exec(`ALTER TABLE incomes ADD COLUMN facture_id INTEGER`);
+      }
+
+      // Add Cheque/Virement columns
+      newCols.forEach((col) => {
+        if (!columnNames.includes(col.name)) {
+          db.exec(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.type}`);
+        }
+      });
     } catch (e) {
       console.error(`Error ensuring columns for ${table}:`, e);
     }
   });
 
-  // Check Transfers table specifically for the description column
   try {
     const transferCols = db.prepare(`PRAGMA table_info(transfers)`).all();
     const transferColNames = transferCols.map((c) => c.name);
     if (!transferColNames.includes("description")) {
       db.exec(`ALTER TABLE transfers ADD COLUMN description TEXT`);
-      console.log("Migration: Added 'description' column to transfers table.");
     }
   } catch (e) {
     console.error("Error ensuring columns for transfers:", e);
   }
 }
 
-const migrations = {
-  1: () => {
-    const columns = db.prepare("PRAGMA table_info(factures)").all();
-    if (!columns.some((col) => col.name === "facture_number_int")) {
-      db.exec("ALTER TABLE factures ADD COLUMN facture_number_int INTEGER");
-    }
-  },
-  2: () => {
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_factures_clientName ON factures(clientName);
-      CREATE INDEX IF NOT EXISTS idx_factures_createdAt ON factures(createdAt); 
-    `);
-  },
-  3: () => {
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes(date);
-      CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
-    `);
-  },
-  6: () => {
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_incomes_payment ON incomes(payment_method);
-      CREATE INDEX IF NOT EXISTS idx_expenses_payment ON expenses(payment_method);
-    `);
-  },
-};
-
-const LATEST_VERSION = 6;
+const LATEST_VERSION = 8;
 
 function runMigrations() {
-  ensureColumns(); // Run self-healing check first
+  ensureColumns();
 
   try {
     const row = db
@@ -181,11 +180,6 @@ function runMigrations() {
     if (currentVersion >= LATEST_VERSION) return;
 
     db.transaction(() => {
-      [1, 2, 3, 6].forEach((v) => {
-        if (v > currentVersion && migrations[v]) {
-          migrations[v]();
-        }
-      });
       db.prepare(
         "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)"
       ).run("db_version", LATEST_VERSION.toString());

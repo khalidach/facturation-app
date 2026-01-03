@@ -21,7 +21,6 @@ import { toast } from "react-hot-toast";
 
 /**
  * COMPOSANTS UI INTERNES
- * Consolidés ici pour assurer la compilation et la stabilité de l'aperçu.
  */
 
 const InternalModal = ({ isOpen, onClose, title, children, size = "md" }) => {
@@ -79,10 +78,6 @@ const InternalPagination = ({ currentPage, totalPages, onPageChange }) => {
   );
 };
 
-/**
- * COMPOSANT PRINCIPAL DE LA PAGE FINANCE
- */
-
 export default function Finance() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("income");
@@ -106,9 +101,13 @@ export default function Finance() {
     payment_method: "cash",
     is_cashed: true,
     in_bank: false,
+    cheque_number: "",
+    bank_name: "",
+    virement_number: "",
+    bank_from: "",
+    bank_to: "",
   });
 
-  // Gérer le clic à l'extérieur pour le menu déroulant des contacts
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -119,7 +118,6 @@ export default function Finance() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Débounce de la recherche
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -128,7 +126,6 @@ export default function Finance() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Récupérer les Transactions
   const { data: txResponse, isLoading } = useQuery({
     queryKey: ["transactions", currentPage, activeTab, debouncedSearch],
     queryFn: () =>
@@ -140,7 +137,6 @@ export default function Finance() {
       }),
   });
 
-  // Récupérer les Contacts pour la liaison
   const { data: contactsData } = useQuery({
     queryKey: ["contacts-search", activeTab, contactSearch],
     queryFn: () => {
@@ -156,7 +152,6 @@ export default function Finance() {
 
   const contacts = contactsData?.data || [];
 
-  // Initialiser le formulaire pour Créer/Modifier
   useEffect(() => {
     if (editingTx) {
       setFormData({
@@ -169,6 +164,12 @@ export default function Finance() {
         payment_method: editingTx.payment_method || "cash",
         is_cashed: editingTx.is_cashed === 1,
         in_bank: editingTx.in_bank === 1,
+        cheque_number: editingTx.cheque_number || "",
+        bank_name: editingTx.bank_name || "",
+        virement_number: editingTx.virement_number || "",
+        bank_from: editingTx.bank_from || "",
+        bank_to: editingTx.bank_to || "",
+        facture_id: editingTx.facture_id || null,
       });
       setContactSearch(editingTx.contact_person || "");
     } else {
@@ -183,6 +184,12 @@ export default function Finance() {
         payment_method: "cash",
         is_cashed: true,
         in_bank: false,
+        cheque_number: "",
+        bank_name: "",
+        virement_number: "",
+        bank_from: "",
+        bank_to: "",
+        facture_id: null,
       }));
       setContactSearch("");
     }
@@ -196,6 +203,12 @@ export default function Finance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
+      // Invalidate payment queries if linked to a facture
+      if (formData.facture_id) {
+        queryClient.invalidateQueries({
+          queryKey: ["payments", formData.facture_id],
+        });
+      }
       toast.success(
         `Enregistrement ${editingTx ? "mis à jour" : "sauvegardé"}`
       );
@@ -289,7 +302,7 @@ export default function Finance() {
         <div className="relative flex-1 max-w-xl group">
           <input
             type="text"
-            placeholder="Rechercher des transactions..."
+            placeholder="Rechercher des transactions (Libellé, N° Chèque...)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-12 pr-6 py-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
@@ -575,8 +588,10 @@ export default function Finance() {
                 <option value="versement">Versement (Bancaire)</option>
               </select>
             </div>
-            {formData.payment_method === "cheque" && (
-              <div className="flex items-center gap-8 bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl px-6">
+            <div className="flex items-center gap-8 bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl px-6 h-[60px]">
+              {formData.payment_method === "cheque" ||
+              formData.payment_method === "virement" ||
+              formData.payment_method === "versement" ? (
                 <label className="flex items-center cursor-pointer group">
                   <input
                     type="checkbox"
@@ -587,25 +602,106 @@ export default function Finance() {
                     className="w-5 h-5 rounded-lg text-emerald-600 focus:ring-emerald-500 mr-2 border-gray-300 transition-all"
                   />
                   <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-emerald-600 transition-colors">
-                    Encaissé
+                    Encaissé / Confirmé
                   </span>
                 </label>
-                <label className="flex items-center cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={formData.in_bank}
-                    onChange={(e) =>
-                      setFormData({ ...formData, in_bank: e.target.checked })
-                    }
-                    className="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500 mr-2 border-gray-300 transition-all"
-                  />
-                  <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">
-                    En banque
-                  </span>
-                </label>
-              </div>
-            )}
+              ) : null}
+              <label className="flex items-center cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={formData.in_bank}
+                  onChange={(e) =>
+                    setFormData({ ...formData, in_bank: e.target.checked })
+                  }
+                  className="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500 mr-2 border-gray-300 transition-all"
+                />
+                <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">
+                  En banque
+                </span>
+              </label>
+            </div>
           </div>
+
+          {/* Conditional Inputs for Cheque and Virement */}
+          {formData.payment_method === "cheque" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                  Numéro du Chèque
+                </label>
+                <input
+                  type="text"
+                  value={formData.cheque_number}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cheque_number: e.target.value })
+                  }
+                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                  Banque Émettrice
+                </label>
+                <input
+                  type="text"
+                  value={formData.bank_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bank_name: e.target.value })
+                  }
+                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
+                />
+              </div>
+            </div>
+          )}
+
+          {formData.payment_method === "virement" && (
+            <div className="space-y-6 animate-in slide-in-from-top-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                  Référence Virement / N°
+                </label>
+                <input
+                  type="text"
+                  value={formData.virement_number}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      virement_number: e.target.value,
+                    })
+                  }
+                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                    Banque Source (From)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_from}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bank_from: e.target.value })
+                    }
+                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                    Banque Destination (To)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_to}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bank_to: e.target.value })
+                    }
+                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-4 pt-6">
             <button

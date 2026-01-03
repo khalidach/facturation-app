@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Download, Edit2, Trash2, FileText } from "lucide-react";
+import {
+  Plus,
+  Download,
+  Edit2,
+  Trash2,
+  FileText,
+  CreditCard,
+} from "lucide-react";
 import Modal from "@/components/Modal.jsx";
 import ConfirmationModal from "@/components/modal/ConfirmationModal.jsx";
 import FactureForm from "@/components/facturation/FactureForm.jsx";
 import FacturePDF from "@/components/facturation/FacturePDF.jsx";
+import PaymentManager from "@/components/facturation/PaymentManager.jsx";
 import { toast } from "react-hot-toast";
 import { jsPDF } from "jspdf";
 import html2canvas from "html2canvas";
@@ -16,6 +24,7 @@ export default function Facturation() {
   const [editingFacture, setEditingFacture] = useState(null);
   const [factureToDelete, setFactureToDelete] = useState(null);
   const [factureToPreview, setFactureToPreview] = useState(null);
+  const [factureForPayment, setFactureForPayment] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("newest");
@@ -100,7 +109,7 @@ export default function Facturation() {
               scale: 2,
               useCORS: true,
               logging: false,
-              width: 794, // Approx 210mm in pixels at 96 DPI
+              width: 794,
             });
             const imgData = canvas.toDataURL("image/png");
             const pdf = new jsPDF("p", "mm", "a4");
@@ -119,7 +128,6 @@ export default function Facturation() {
           }
         }
       };
-      // Increased timeout to ensure full rendering
       const timer = setTimeout(generatePdf, 300);
       return () => clearTimeout(timer);
     }
@@ -146,7 +154,7 @@ export default function Facturation() {
               setEditingFacture(null);
               setIsModalOpen(true);
             }}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-sm transition-colors"
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-500/20 transition-all font-black text-sm"
           >
             <Plus className="w-5 h-5 mr-2" /> Nouveau Document
           </button>
@@ -182,7 +190,7 @@ export default function Facturation() {
                   (h) => (
                     <th
                       key={h}
-                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                      className="px-6 py-4 text-left text-xs font-black text-gray-400 uppercase tracking-widest"
                     >
                       {h}
                     </th>
@@ -195,9 +203,9 @@ export default function Facturation() {
                 <tr>
                   <td
                     colSpan={6}
-                    className="text-center p-4 italic text-gray-500"
+                    className="text-center p-10 italic text-gray-500 font-bold animate-pulse"
                   >
-                    Chargement...
+                    Synchronisation de la base...
                   </td>
                 </tr>
               ) : factures.length === 0 ? (
@@ -213,28 +221,44 @@ export default function Facturation() {
                 factures.map((facture) => (
                   <tr
                     key={facture.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100">
                       {facture.facture_number}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm capitalize text-gray-700 dark:text-gray-300">
-                      {facture.type === "facture" ? "Facture" : "Devis"}
+                    <td className="px-6 py-4 whitespace-nowrap text-xs font-black uppercase text-gray-400">
+                      <span
+                        className={`px-2 py-1 rounded-md ${
+                          facture.type === "facture"
+                            ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20"
+                            : "bg-amber-50 text-amber-600 dark:bg-amber-900/20"
+                        }`}
+                      >
+                        {facture.type === "facture" ? "Facture" : "Devis"}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700 dark:text-gray-300">
                       {facture.clientName}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-400">
                       {new Date(facture.date).toLocaleDateString("fr-FR")}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">
-                      {facture.total.toLocaleString()} MAD
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-white">
+                      {facture.total.toLocaleString()}{" "}
+                      <span className="text-[10px] opacity-40">MAD</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => setFactureForPayment(facture)}
+                          className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all"
+                          title="Gérer les règlements"
+                        >
+                          <CreditCard className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleDownloadPDF(facture)}
-                          className="p-2 text-gray-400 hover:text-green-600 rounded-lg"
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all"
                         >
                           <Download className="w-4 h-4" />
                         </button>
@@ -243,13 +267,13 @@ export default function Facturation() {
                             setEditingFacture(facture);
                             setIsModalOpen(true);
                           }}
-                          className="p-2 text-gray-400 hover:text-blue-600 rounded-lg"
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setFactureToDelete(facture.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 rounded-lg"
+                          className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -261,7 +285,7 @@ export default function Facturation() {
             </tbody>
           </table>
           {pagination && pagination.totalPages > 1 && (
-            <div className="p-4">
+            <div className="p-4 border-t dark:border-gray-700">
               <PaginationControls
                 currentPage={currentPage}
                 totalPages={pagination.totalPages}
@@ -277,7 +301,11 @@ export default function Facturation() {
             setIsModalOpen(false);
             setEditingFacture(null);
           }}
-          title={editingFacture ? "Modifier le document" : "Nouveau document"}
+          title={
+            editingFacture
+              ? "Modification du document"
+              : "Création d'un document"
+          }
           size="xl"
         >
           <FactureForm
@@ -287,16 +315,24 @@ export default function Facturation() {
           />
         </Modal>
 
+        <Modal
+          isOpen={!!factureForPayment}
+          onClose={() => setFactureForPayment(null)}
+          title={`Gestion des règlements • ${factureForPayment?.facture_number}`}
+          size="lg"
+        >
+          {factureForPayment && <PaymentManager facture={factureForPayment} />}
+        </Modal>
+
         <ConfirmationModal
           isOpen={!!factureToDelete}
           onClose={() => setFactureToDelete(null)}
           onConfirm={() => deleteFacture(factureToDelete)}
-          title="Supprimer le document"
-          message="Êtes-vous sûr de vouloir supprimer ce document ?"
+          title="Confirmer la suppression"
+          message="Voulez-vous vraiment supprimer ce document ? Cette action n'impactera pas les transactions financières déjà enregistrées."
         />
       </div>
 
-      {/* FIXED PDF CONTAINER: Forced width and specific positioning */}
       {factureToPreview && (
         <div
           style={{
