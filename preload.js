@@ -51,6 +51,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   updateSupplier: (id, data) =>
     ipcRenderer.invoke("db:updateSupplier", { id, data }),
   deleteSupplier: (id) => ipcRenderer.invoke("db:deleteSupplier", id),
+  // Inside contextBridge.exposeInMainWorld in preload.js
+  getBonDeCommandeById: (id) =>
+    ipcRenderer.invoke("db:getBonDeCommandeById", id),
 
   licenseVerify: (licenseCode) =>
     ipcRenderer.invoke("license:verify", { licenseCode }),

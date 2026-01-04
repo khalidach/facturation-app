@@ -663,6 +663,21 @@ ipcMain.handle("db:getPaymentsByBonDeCommande", (event, bcId) => {
     throw error;
   }
 });
+// Add this inside the IPC HANDLERS section of main.js
+ipcMain.handle("db:getBonDeCommandeById", (event, id) => {
+  try {
+    return db
+      .prepare(
+        `SELECT *, 
+        (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid 
+        FROM bon_de_commande WHERE id = ?`
+      )
+      .get(id);
+  } catch (error) {
+    console.error("Error getting BC by id:", error);
+    throw error;
+  }
+});
 
 // --- 6. CONTACTS (CLIENTS & SUPPLIERS) ---
 ipcMain.handle("db:getClients", (event, args) => {

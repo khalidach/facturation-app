@@ -106,6 +106,15 @@ export default function Finance() {
     virement_number: "",
     bank_from: "",
     bank_to: "",
+    bon_de_commande_id: null,
+  });
+
+  // Fetch linked Purchase Order details for validation
+  const { data: linkedBC } = useQuery({
+    queryKey: ["bc-details", formData.bon_de_commande_id],
+    queryFn: () =>
+      window.electronAPI.getBonDeCommandeById(formData.bon_de_commande_id),
+    enabled: !!formData.bon_de_commande_id && isModalOpen,
   });
 
   useEffect(() => {
@@ -170,6 +179,7 @@ export default function Finance() {
         bank_from: editingTx.bank_from || "",
         bank_to: editingTx.bank_to || "",
         facture_id: editingTx.facture_id || null,
+        bon_de_commande_id: editingTx.bon_de_commande_id || null,
       });
       setContactSearch(editingTx.contact_person || "");
     } else {
@@ -190,6 +200,7 @@ export default function Finance() {
         bank_from: "",
         bank_to: "",
         facture_id: null,
+        bon_de_commande_id: null,
       }));
       setContactSearch("");
     }
@@ -201,9 +212,11 @@ export default function Finance() {
         ? window.electronAPI.updateTransaction(editingTx.id, data)
         : window.electronAPI.createTransaction(data),
     onSuccess: () => {
+      // Automatic Synchronization
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
-      // Invalidate payment queries if linked to a facture
+      queryClient.invalidateQueries({ queryKey: ["bon-de-commandes"] });
+
       if (formData.facture_id) {
         queryClient.invalidateQueries({
           queryKey: ["payments", formData.facture_id],
@@ -224,10 +237,31 @@ export default function Finance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
+      queryClient.invalidateQueries({ queryKey: ["bon-de-commandes"] });
       toast.success("Supprimé");
       setTxToDelete(null);
     },
   });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const inputAmount = parseFloat(formData.amount);
+
+    // Amount Validation against Linked Purchase Order
+    if (formData.bon_de_commande_id && linkedBC) {
+      const currentLimit =
+        linkedBC.total -
+        linkedBC.totalPaid +
+        (editingTx ? editingTx.amount : 0);
+      if (inputAmount > currentLimit + 0.01) {
+        return toast.error(
+          `Le montant dépasse le solde restant du Bon de Commande (${currentLimit.toLocaleString()} MAD)`
+        );
+      }
+    }
+
+    saveTx(formData);
+  };
 
   const getPaymentIcon = (method) => {
     switch (method) {
@@ -447,13 +481,7 @@ export default function Finance() {
         }
         size="lg"
       >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            saveTx(formData);
-          }}
-          className="space-y-8"
-        >
+        <form onSubmit={handleSubmit} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
