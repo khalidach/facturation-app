@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     payment_method TEXT DEFAULT 'cash',
     is_cashed INTEGER DEFAULT 1,
     in_bank INTEGER DEFAULT 0,
+    bon_de_commande_id INTEGER,
     cheque_number TEXT,
     bank_name TEXT,
     virement_number TEXT,
@@ -96,6 +97,26 @@ CREATE TABLE IF NOT EXISTS transfers (
 );
 `;
 
+// Requirement: New table for Purchase Orders (Bon de Commande)
+const createBonDeCommandeTable = `
+CREATE TABLE IF NOT EXISTS bon_de_commande (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number TEXT UNIQUE,
+    supplierName TEXT NOT NULL,
+    supplierAddress TEXT,
+    supplierICE TEXT,
+    date TEXT NOT NULL,
+    items TEXT NOT NULL,
+    prixTotalHorsFrais REAL NOT NULL,
+    totalFraisServiceHT REAL NOT NULL,
+    tva REAL NOT NULL,
+    total REAL NOT NULL,
+    notes TEXT,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
 const createSettingsTable = `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);`;
 const createThemeTable = `CREATE TABLE IF NOT EXISTS theme (id INTEGER PRIMARY KEY CHECK (id = 1), styles TEXT);`;
 const createClientsTable = `CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, address TEXT, ice TEXT, email TEXT, phone TEXT, notes TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
@@ -106,6 +127,7 @@ db.exec(createFacturesTable);
 db.exec(createIncomesTable);
 db.exec(createExpensesTable);
 db.exec(createTransfersTable);
+db.exec(createBonDeCommandeTable);
 db.exec(createSettingsTable);
 db.exec(createThemeTable);
 db.exec(createClientsTable);
@@ -140,8 +162,15 @@ function ensureColumns() {
       if (!columnNames.includes("in_bank")) {
         db.exec(`ALTER TABLE ${table} ADD COLUMN in_bank INTEGER DEFAULT 0`);
       }
+
+      // Link incomes to factures
       if (table === "incomes" && !columnNames.includes("facture_id")) {
         db.exec(`ALTER TABLE incomes ADD COLUMN facture_id INTEGER`);
+      }
+
+      // Link expenses to bon_de_commande
+      if (table === "expenses" && !columnNames.includes("bon_de_commande_id")) {
+        db.exec(`ALTER TABLE expenses ADD COLUMN bon_de_commande_id INTEGER`);
       }
 
       // Add Cheque/Virement columns
@@ -166,7 +195,7 @@ function ensureColumns() {
   }
 }
 
-const LATEST_VERSION = 8;
+const LATEST_VERSION = 9; // Incremented for Bon de Commande addition
 
 function runMigrations() {
   ensureColumns();

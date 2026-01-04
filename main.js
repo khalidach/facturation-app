@@ -167,6 +167,12 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       values.push(data.facture_id || null);
     }
 
+    // Support linking expenses to purchase orders
+    if (tableName === "expenses") {
+      columns.push("bon_de_commande_id");
+      values.push(data.bon_de_commande_id || null);
+    }
+
     const placeholders = columns.map(() => "?").join(", ");
     const stmt = db.prepare(
       `INSERT INTO ${tableName} (${columns.join(
@@ -219,6 +225,11 @@ ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
     if (tableName === "incomes") {
       columns.push("facture_id=?");
       values.push(data.facture_id || null);
+    }
+
+    if (tableName === "expenses") {
+      columns.push("bon_de_commande_id=?");
+      values.push(data.bon_de_commande_id || null);
     }
 
     db.prepare(`UPDATE ${tableName} SET ${columns.join(", ")} WHERE id=?`).run(
@@ -382,7 +393,6 @@ ipcMain.handle("db:deleteTransfer", (event, id) => {
 });
 
 // --- 4. FACTURATION (INVOICES & QUOTES) ---
-// Remplacez le handler db:getFactures dans main.js
 ipcMain.handle("db:getFactures", (event, args) => {
   const { page = 1, limit = 10, search = "", sortBy = "newest" } = args;
   const offset = (page - 1) * limit;
@@ -401,7 +411,6 @@ ipcMain.handle("db:getFactures", (event, args) => {
       .prepare(`SELECT COUNT(*) as totalCount FROM factures ${whereClause}`)
       .get(...params);
 
-    // Modification ici : Ajout du calcul du totalPaid via une sous-requête sur la table incomes
     const data = db
       .prepare(
         `SELECT *, 
@@ -515,7 +524,147 @@ ipcMain.handle("db:deleteFacture", (event, id) => {
   }
 });
 
-// --- 5. CONTACTS (CLIENTS & SUPPLIERS) ---
+// --- 5. BON DE COMMANDE (PURCHASE ORDERS) ---
+ipcMain.handle("db:getBonDeCommandes", (event, args) => {
+  const { page = 1, limit = 10, search = "", sortBy = "newest" } = args;
+  const offset = (page - 1) * limit;
+  let where = "";
+  const params = [];
+  if (search) {
+    where =
+      "WHERE supplierName LIKE ? OR order_number LIKE ? OR CAST(total AS TEXT) LIKE ?";
+    const term = `%${search}%`;
+    params.push(term, term, term);
+  }
+  const orderBy =
+    sortBy === "oldest" ? "ORDER BY createdAt ASC" : "ORDER BY createdAt DESC";
+  try {
+    const count = db
+      .prepare(`SELECT COUNT(*) as total FROM bon_de_commande ${where}`)
+      .get(...params);
+    const data = db
+      .prepare(
+        `
+      SELECT *, 
+      (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid 
+      FROM bon_de_commande ${where} ${orderBy} LIMIT ? OFFSET ?
+    `
+      )
+      .all(...params, limit, offset);
+    return {
+      data,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil((count?.total || 0) / limit),
+        totalCount: count?.total || 0,
+      },
+    };
+  } catch (error) {
+    console.error("Error getting bon de commandes:", error);
+    throw error;
+  }
+});
+
+ipcMain.handle("db:createBonDeCommande", (event, data) => {
+  const {
+    supplierName,
+    supplierAddress,
+    supplierICE,
+    date,
+    items,
+    prixTotalHorsFrais,
+    totalFraisServiceHT,
+    tva,
+    total,
+    notes,
+    order_number: manualNum,
+  } = data;
+
+  let order_number = manualNum;
+  if (!manualNum || manualNum.trim() === "") {
+    const year = new Date(date).getFullYear().toString();
+    const last = db
+      .prepare("SELECT MAX(id) as maxId FROM bon_de_commande")
+      .get();
+    const nextNum = (last.maxId || 0) + 1;
+    order_number = `BC-${String(nextNum).padStart(3, "0")}/${year}`;
+  }
+
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO bon_de_commande (order_number, supplierName, supplierAddress, supplierICE, date, items, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const info = stmt.run(
+      order_number,
+      supplierName,
+      supplierAddress,
+      supplierICE,
+      date,
+      JSON.stringify(items),
+      prixTotalHorsFrais,
+      totalFraisServiceHT,
+      tva,
+      total,
+      notes
+    );
+    return { id: info.lastInsertRowid, ...data, order_number };
+  } catch (error) {
+    console.error("Error creating bon de commande:", error);
+    throw error;
+  }
+});
+
+ipcMain.handle("db:updateBonDeCommande", (event, { id, data }) => {
+  try {
+    db.prepare(
+      `
+      UPDATE bon_de_commande SET supplierName=?, supplierAddress=?, supplierICE=?, date=?, items=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?
+    `
+    ).run(
+      data.supplierName,
+      data.supplierAddress,
+      data.supplierICE,
+      data.date,
+      JSON.stringify(data.items),
+      data.prixTotalHorsFrais,
+      data.totalFraisServiceHT,
+      data.tva,
+      data.total,
+      data.notes,
+      id
+    );
+    return { id, ...data };
+  } catch (error) {
+    console.error("Error updating bon de commande:", error);
+    throw error;
+  }
+});
+
+ipcMain.handle("db:deleteBonDeCommande", (event, id) => {
+  try {
+    db.prepare("DELETE FROM bon_de_commande WHERE id = ?").run(id);
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting bon de commande:", error);
+    throw error;
+  }
+});
+
+ipcMain.handle("db:getPaymentsByBonDeCommande", (event, bcId) => {
+  try {
+    return db
+      .prepare(
+        "SELECT * FROM expenses WHERE bon_de_commande_id = ? ORDER BY date DESC"
+      )
+      .all(bcId);
+  } catch (error) {
+    console.error("Error getting payments by BC:", error);
+    throw error;
+  }
+});
+
+// --- 6. CONTACTS (CLIENTS & SUPPLIERS) ---
 ipcMain.handle("db:getClients", (event, args) => {
   const { page = 1, limit = 10, search = "" } = args;
   const offset = (page - 1) * limit;
@@ -637,7 +786,7 @@ ipcMain.handle("db:deleteSupplier", (event, id) => {
   return { success: true };
 });
 
-// --- 6. SETTINGS & THEME ---
+// --- 7. SETTINGS & THEME ---
 ipcMain.handle("db:getSettings", () => {
   const settings = {};
   db.prepare("SELECT key, value FROM settings")
@@ -668,7 +817,7 @@ ipcMain.handle("db:updateTheme", (event, { styles }) => {
   return { success: true };
 });
 
-// --- 7. LICENSE VERIFICATION ---
+// --- 8. LICENSE VERIFICATION ---
 ipcMain.handle("license:verify", async (event, { licenseCode }) => {
   try {
     const res = await fetch(

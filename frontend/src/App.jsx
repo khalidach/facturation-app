@@ -9,6 +9,7 @@ import Contacts from "./pages/Contacts.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Finance from "./pages/Finance.jsx";
 import Treasury from "./pages/Treasury.jsx";
+import BonDeCommande from "./pages/BonDeCommande.jsx"; // New Page
 import {
   Settings as SettingsIcon,
   FileText,
@@ -17,6 +18,7 @@ import {
   LayoutDashboard,
   CircleDollarSign,
   Landmark,
+  ShoppingBag,
 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -56,10 +58,11 @@ export default function App() {
     );
 
   const menuItems = [
-    { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard }, // Changed from "Dashboard"
+    { id: "dashboard", label: "Tableau de bord", icon: LayoutDashboard },
     { id: "treasury", label: "Trésorerie", icon: Landmark },
     { id: "finance", label: "Finance", icon: CircleDollarSign },
     { id: "facturation", label: "Facturation", icon: FileText },
+    { id: "bon-de-commande", label: "Bon de Commande", icon: ShoppingBag }, // New Item
     { id: "contacts", label: "Contacts", icon: Users },
     { id: "settings", label: "Paramètres", icon: SettingsIcon },
     { id: "theme", label: "Thème", icon: Palette },
@@ -96,6 +99,7 @@ export default function App() {
             {activeTab === "treasury" && <Treasury />}
             {activeTab === "finance" && <Finance />}
             {activeTab === "facturation" && <Facturation />}
+            {activeTab === "bon-de-commande" && <BonDeCommande />}
             {activeTab === "contacts" && <Contacts />}
             {activeTab === "settings" && <Settings />}
             {activeTab === "theme" && <Theme />}

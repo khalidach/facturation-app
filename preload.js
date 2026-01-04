@@ -24,6 +24,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getPaymentsByFacture: (factureId) =>
     ipcRenderer.invoke("db:getPaymentsByFacture", factureId),
 
+  // Bon de Commande (Purchase Orders)
+  getBonDeCommandes: (args) => ipcRenderer.invoke("db:getBonDeCommandes", args),
+  createBonDeCommande: (data) =>
+    ipcRenderer.invoke("db:createBonDeCommande", data),
+  updateBonDeCommande: (id, data) =>
+    ipcRenderer.invoke("db:updateBonDeCommande", { id, data }),
+  deleteBonDeCommande: (id) => ipcRenderer.invoke("db:deleteBonDeCommande", id),
+  getPaymentsByBonDeCommande: (bcId) =>
+    ipcRenderer.invoke("db:getPaymentsByBonDeCommande", bcId),
+
   // Settings & Theme
   getSettings: () => ipcRenderer.invoke("db:getSettings"),
   updateSettings: (data) => ipcRenderer.invoke("db:updateSettings", data),
