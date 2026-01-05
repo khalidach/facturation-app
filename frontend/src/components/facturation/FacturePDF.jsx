@@ -2,7 +2,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { numberToWordsFr } from "../../services/numberToWords.js";
 
-// Fonction d'aide pour obtenir l'objet de style imbriqué
+// Fonction d'aide pour extraire les styles du thème
 const getStyle = (styles, path) => {
   try {
     return path.split(".").reduce((acc, key) => acc && acc[key], styles) || {};
@@ -24,14 +24,11 @@ export default function FacturePDF({ facture, themeStyles }) {
   });
 
   const styles = themeStyles || savedTheme?.styles || {};
-
   const headerStyles = styles.header || {};
   const bodyStyles = styles.body || {};
   const footerStyles = styles.footer || {};
 
   const totalInWords = numberToWordsFr(facture.total);
-
-  // Conversion de showMargin en booléen strict
   const showMargin = !!(facture.showMargin ?? true);
 
   const parsedItems =
@@ -41,49 +38,95 @@ export default function FacturePDF({ facture, themeStyles }) {
 
   return (
     <div
-      className="bg-white p-10 font-sans text-xs flex flex-col"
+      className="pdf-container"
       style={{
         width: "210mm",
         minHeight: "297mm",
+        backgroundColor: "white",
+        padding: "40px",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "'Inter', sans-serif",
         ...getStyle(styles, "container"),
       }}
     >
+      {/* Styles critiques pour le moteur de rendu PDF (Remplace Tailwind dans le PDF) */}
       <style>
-        {headerStyles.customCss}
-        {bodyStyles.customCss}
-        {footerStyles.customCss}
+        {`
+          @media print {
+            body { -webkit-print-color-adjust: exact; }
+          }
+          .pdf-container * { box-sizing: border-box; }
+          .flex { display: flex; }
+          .flex-col { flex-direction: column; }
+          .flex-grow { flex-grow: 1; }
+          .justify-between { justify-content: space-between; }
+          .items-center { align-items: center; }
+          .items-end { align-items: flex-end; }
+          .text-right { text-align: right; }
+          .uppercase { text-transform: uppercase; }
+          .mb-8 { margin-bottom: 32px; }
+          .mt-1 { margin-top: 4px; }
+          .gap-4 { gap: 16px; }
+          .gap-2 { gap: 8px; }
+          .flex-wrap { flex-wrap: wrap; }
+          .justify-center { justify-content: center; }
+          
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { padding: 12px 8px; border-bottom: 1px solid #e5e7eb; }
+          tr { page-break-inside: avoid; }
+          
+          ${headerStyles.customCss || ""}
+          ${bodyStyles.customCss || ""}
+          ${footerStyles.customCss || ""}
+        `}
       </style>
+
       <div className="flex-grow">
-        <header
-          className="header-container"
-          style={getStyle(styles, "header.container")}
-        >
+        {/* HEADER */}
+        <header style={getStyle(styles, "header.container")}>
           <div className="flex justify-between items-center mb-8">
-            {/* Côté gauche : Logo et Nom de l'agence */}
             <div className="flex items-center gap-4">
               {settings?.logo && (
                 <img
                   src={settings.logo}
-                  alt="Logo de l'agence"
-                  className="block"
-                  style={getStyle(styles, "header.logo")}
+                  alt="Logo"
+                  style={{
+                    maxHeight: "80px",
+                    width: "auto",
+                    ...getStyle(styles, "header.logo"),
+                  }}
                 />
               )}
-              <h1 style={getStyle(styles, "header.agencyName")}>
+              <h1
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "bold",
+                  ...getStyle(styles, "header.agencyName"),
+                }}
+              >
                 {settings?.agencyName || "Votre Agence"}
               </h1>
             </div>
-            {/* Côté droit : Détails du document */}
-            <div className="flex flex-col items-end justify-center flex-1 text-right">
+
+            <div className="flex flex-col items-end text-right">
               <h2
                 className="uppercase"
-                style={getStyle(styles, "header.factureType")}
+                style={{
+                  fontSize: "24px",
+                  fontWeight: "900",
+                  color: "#2563eb",
+                  ...getStyle(styles, "header.factureType"),
+                }}
               >
                 {facture.type === "devis" ? "Devis" : "Facture"}
               </h2>
               <p
-                className="mt-1"
-                style={getStyle(styles, "header.factureNumber")}
+                className=""
+                style={{
+                  fontWeight: "bold",
+                  ...getStyle(styles, "header.factureNumber"),
+                }}
               >
                 N° : {facture.facture_number}
               </p>
@@ -91,7 +134,13 @@ export default function FacturePDF({ facture, themeStyles }) {
                 Date : {new Date(facture.date).toLocaleDateString("fr-FR")}
               </p>
               {settings?.ice && (
-                <p style={getStyle(styles, "header.ice")}>
+                <p
+                  style={{
+                    fontSize: "10px",
+                    color: "#6b7280",
+                    ...getStyle(styles, "header.ice"),
+                  }}
+                >
                   ICE : {settings.ice}
                 </p>
               )}
@@ -99,79 +148,105 @@ export default function FacturePDF({ facture, themeStyles }) {
           </div>
         </header>
 
-        <main
-          className="body-container"
-          style={getStyle(styles, "body.container")}
-        >
+        {/* BODY */}
+        <main style={getStyle(styles, "body.container")}>
           {facture?.clientName && (
-            <div style={getStyle(styles, "body.clientInfo.container")}>
-              <p style={getStyle(styles, "body.clientInfo.clientName")}>
-                {facture.clientName}
+            <div
+              style={{
+                marginBottom: "30px",
+                padding: "15px",
+                backgroundColor: "#f9fafb",
+                borderRadius: "8px",
+                ...getStyle(styles, "body.clientInfo.container"),
+              }}
+            >
+              <p
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                  marginBottom: "4px",
+                  ...getStyle(styles, "body.clientInfo.clientName"),
+                }}
+              >
+                Client : {facture.clientName}
               </p>
-              <p style={getStyle(styles, "body.clientInfo.clientAddress")}>
+              <p
+                style={{
+                  color: "#4b5563",
+                  ...getStyle(styles, "body.clientInfo.clientAddress"),
+                }}
+              >
                 {facture.clientAddress}
               </p>
               {facture.clientICE && (
-                <p style={getStyle(styles, "body.clientInfo.clientICE")}>
-                  ICE : {facture.clientICE}
+                <p
+                  style={{
+                    fontSize: "11px",
+                    marginTop: "4px",
+                    ...getStyle(styles, "body.clientInfo.clientICE"),
+                  }}
+                >
+                  ICE Client : {facture.clientICE}
                 </p>
               )}
             </div>
           )}
+
           <table
-            className="table-container"
             style={{
               ...getStyle(styles, "body.table.container"),
               minHeight: "300px",
             }}
           >
             <thead>
-              <tr style={getStyle(styles, "body.table.row")}>
+              <tr
+                style={{
+                  backgroundColor: "#f3f4f6",
+                  ...getStyle(styles, "body.table.row"),
+                }}
+              >
                 <th
                   style={{
+                    textAlign: "left",
                     ...getStyle(styles, "body.table.header"),
-                    verticalAlign: "middle",
                   }}
                 >
                   DÉSIGNATION
                 </th>
                 <th
                   style={{
-                    ...getStyle(styles, "body.table.header"),
                     textAlign: "center",
-                    verticalAlign: "middle",
+                    width: "60px",
+                    ...getStyle(styles, "body.table.header"),
                   }}
                 >
                   QTÉ
                 </th>
                 <th
                   style={{
-                    ...getStyle(styles, "body.table.header"),
                     textAlign: "right",
-                    verticalAlign: "middle",
+                    ...getStyle(styles, "body.table.header"),
                   }}
                 >
-                  PRIX UNITAIRE
+                  P.U HT
                 </th>
-                {showMargin === true && (
+                {showMargin && (
                   <th
                     style={{
-                      ...getStyle(styles, "body.table.header"),
                       textAlign: "right",
-                      verticalAlign: "middle",
+                      ...getStyle(styles, "body.table.header"),
                     }}
                   >
-                    FRAIS SERV. UNITAIRE
+                    SERV. HT
                   </th>
                 )}
                 <th
                   style={{
-                    ...getStyle(styles, "body.table.header"),
                     textAlign: "right",
-                    verticalAlign: "middle",
+                    ...getStyle(styles, "body.table.header"),
                   }}
                 >
-                  MONTANT TOTAL
+                  TOTAL HT
                 </th>
               </tr>
             </thead>
@@ -180,149 +255,189 @@ export default function FacturePDF({ facture, themeStyles }) {
                 <tr key={index} style={getStyle(styles, "body.table.row")}>
                   <td
                     style={{
-                      ...getStyle(styles, "body.table.cell"),
                       whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
+                      ...getStyle(styles, "body.table.cell"),
                     }}
                   >
                     {item.description}
                   </td>
                   <td
                     style={{
-                      ...getStyle(styles, "body.table.cell"),
                       textAlign: "center",
+                      ...getStyle(styles, "body.table.cell"),
                     }}
                   >
                     {item.quantity}
                   </td>
                   <td
                     style={{
-                      ...getStyle(styles, "body.table.cell"),
                       textAlign: "right",
+                      ...getStyle(styles, "body.table.cell"),
                     }}
                   >
-                    {(Number(item.prixUnitaire) || 0).toLocaleString(
-                      undefined,
-                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                    )}
+                    {Number(item.prixUnitaire).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}
                   </td>
-                  {showMargin === true && (
+                  {showMargin && (
                     <td
                       style={{
-                        ...getStyle(styles, "body.table.cell"),
                         textAlign: "right",
+                        ...getStyle(styles, "body.table.cell"),
                       }}
                     >
-                      {(Number(item.fraisServiceUnitaire) || 0).toLocaleString(
+                      {Number(item.fraisServiceUnitaire).toLocaleString(
                         undefined,
-                        { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+                        { minimumFractionDigits: 2 }
                       )}
                     </td>
                   )}
                   <td
                     style={{
-                      ...getStyle(styles, "body.table.cell"),
                       textAlign: "right",
                       fontWeight: "bold",
+                      ...getStyle(styles, "body.table.cell"),
                     }}
                   >
-                    {(Number(item.total) || 0).toLocaleString(undefined, {
+                    {Number(item.total).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
                     })}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div style={getStyle(styles, "body.totals.container")}>
-            {showMargin === true && (
-              <>
-                <div style={getStyle(styles, "body.totals.row")}>
-                  <span style={getStyle(styles, "body.totals.label")}>
-                    Prix Total H. Frais de SCE
-                  </span>
-                  <span style={getStyle(styles, "body.totals.value")}>
-                    {Number(facture.prixTotalHorsFrais).toLocaleString(
-                      undefined,
-                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                    )}{" "}
-                    MAD
-                  </span>
-                </div>
-                <div style={getStyle(styles, "body.totals.row")}>
-                  <span style={getStyle(styles, "body.totals.label")}>
-                    Frais de Service Hors TVA
-                  </span>
-                  <span style={getStyle(styles, "body.totals.value")}>
-                    {Number(facture.totalFraisServiceHT).toLocaleString(
-                      undefined,
-                      { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                    )}{" "}
-                    MAD
-                  </span>
-                </div>
-                <div style={getStyle(styles, "body.totals.row")}>
-                  <span style={getStyle(styles, "body.totals.label")}>
-                    TVA 20%
-                  </span>
-                  <span style={getStyle(styles, "body.totals.value")}>
-                    {Number(facture.tva).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}{" "}
-                    MAD
-                  </span>
-                </div>
-              </>
-            )}
-            <div style={getStyle(styles, "body.totals.totalRow")}>
-              <span style={getStyle(styles, "body.totals.label")}>
-                Total {facture.type === "devis" ? "Devis" : "Facture"}
-              </span>
-              <span style={getStyle(styles, "body.totals.value")}>
-                {Number(facture.total).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}{" "}
-                MAD
-              </span>
+
+          {/* TOTALS */}
+          <div
+            style={{
+              marginTop: "20px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              ...getStyle(styles, "body.totals.container"),
+            }}
+          >
+            <div style={{ width: "250px" }}>
+              {showMargin && (
+                <>
+                  <div
+                    className="flex justify-between mt-1"
+                    style={getStyle(styles, "body.totals.row")}
+                  >
+                    <span>Total Hors Frais :</span>
+                    <span>
+                      {Number(facture.prixTotalHorsFrais).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 }
+                      )}{" "}
+                      MAD
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between mt-1"
+                    style={getStyle(styles, "body.totals.row")}
+                  >
+                    <span>Frais Service HT :</span>
+                    <span>
+                      {Number(facture.totalFraisServiceHT).toLocaleString(
+                        undefined,
+                        { minimumFractionDigits: 2 }
+                      )}{" "}
+                      MAD
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between mt-1"
+                    style={getStyle(styles, "body.totals.row")}
+                  >
+                    <span>TVA (20%) :</span>
+                    <span>
+                      {Number(facture.tva).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      MAD
+                    </span>
+                  </div>
+                </>
+              )}
+              <div
+                className="flex justify-between mt-2 pt-2"
+                style={{
+                  borderTop: "2px solid #000",
+                  fontWeight: "900",
+                  fontSize: "14px",
+                  ...getStyle(styles, "body.totals.totalRow"),
+                }}
+              >
+                <span>TOTAL TTC :</span>
+                <span>
+                  {Number(facture.total).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                  })}{" "}
+                  MAD
+                </span>
+              </div>
             </div>
           </div>
-          <div style={getStyle(styles, "body.totalInWords.container")}>
-            <p style={getStyle(styles, "body.totalInWords.label")}>
+
+          <div
+            style={{
+              marginTop: "40px",
+              fontStyle: "italic",
+              ...getStyle(styles, "body.totalInWords.container"),
+            }}
+          >
+            <p
+              style={{
+                fontSize: "11px",
+                ...getStyle(styles, "body.totalInWords.label"),
+              }}
+            >
               Arrêté la présente facture à la somme de :
             </p>
-            <p style={getStyle(styles, "body.totalInWords.value")}>
+            <p
+              style={{
+                fontWeight: "bold",
+                textTransform: "capitalize",
+                ...getStyle(styles, "body.totalInWords.value"),
+              }}
+            >
               {totalInWords}
             </p>
           </div>
         </main>
       </div>
+
+      {/* FOOTER */}
       <footer
-        className="footer-container"
-        style={getStyle(styles, "footer.container")}
+        style={{
+          borderTop: "1px solid #eee",
+          paddingTop: "20px",
+          ...getStyle(styles, "footer.container"),
+        }}
       >
-        <div className="flex gap-2 justify-center flex-wrap">
+        <div
+          className="flex gap-2 justify-center flex-wrap"
+          style={{ fontSize: "9px", color: "#6b7280", textAlign: "center" }}
+        >
           {[
             `Sté. ${settings?.agencyName || ""} ${settings?.typeSociete || ""}`,
             settings?.capital && `Capital : ${settings.capital} Dhs`,
-            settings?.address && `Siège Social : ${settings.address}`,
-            settings?.phone && `Fixe : ${settings.phone}`,
+            settings?.address && `Siège : ${settings.address}`,
+            settings?.phone && `Tél : ${settings.phone}`,
             settings?.email && `Email : ${settings.email}`,
             settings?.ice && `ICE : ${settings.ice}`,
             settings?.if && `IF : ${settings.if}`,
             settings?.rc && `RC : ${settings.rc}`,
-            settings?.patente && `Patente : ${settings.patente}`,
-            settings?.cnss && `CNSS : ${settings.cnss}`,
             settings?.bankName &&
               settings?.rib &&
-              `Banque ${settings.bankName} : ${settings.rib}`,
+              `RIB (${settings.bankName}) : ${settings.rib}`,
           ]
             .filter(Boolean)
             .map((item, idx) => (
               <p key={idx} style={getStyle(styles, "footer.text")}>
-                {idx > 0 ? `- ${item}` : item}
+                {idx > 0 ? `| ${item}` : item}
               </p>
             ))}
         </div>

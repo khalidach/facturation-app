@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Plus,
-  CreditCard,
-  Download,
-  Edit2,
-  Trash2,
-  ShoppingBag,
-} from "lucide-react";
+import { Plus, CreditCard, Download, Edit2, Trash2 } from "lucide-react";
 import Modal from "@/components/Modal.jsx";
 import ConfirmationModal from "@/components/modal/ConfirmationModal.jsx";
 import BonDeCommandeForm from "@/components/BonCommande/BonDeCommandeForm.jsx";
 import BonDeCommandePaymentManager from "@/components/BonCommande/BonDeCommandePaymentManager.jsx";
 import BonDeCommandePDF from "@/components/BonCommande/BonDeCommandePDF.jsx";
 import { toast } from "react-hot-toast";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 
 export default function BonDeCommande() {
   const queryClient = useQueryClient();
@@ -33,7 +24,7 @@ export default function BonDeCommande() {
   const orders = response?.data || [];
 
   const { mutate: deleteOrder } = useMutation({
-    mutationFn: window.electronAPI.deleteBonDeCommande,
+    mutationFn: (id) => window.electronAPI.deleteBonDeCommande(id),
     onSuccess: () => {
       queryClient.invalidateQueries(["bon-de-commandes"]);
       toast.success("Bon de commande supprimé");
@@ -45,7 +36,11 @@ export default function BonDeCommande() {
   const handleSave = async (data) => {
     try {
       if (editingOrder) {
-        await window.electronAPI.updateBonDeCommande(editingOrder.id, data);
+        // Mise à jour selon la nouvelle structure d'API (id, data)
+        await window.electronAPI.updateBonDeCommande({
+          id: editingOrder.id,
+          data,
+        });
         toast.success("Bon de commande mis à jour");
       } else {
         await window.electronAPI.createBonDeCommande(data);
@@ -59,6 +54,7 @@ export default function BonDeCommande() {
     }
   };
 
+  // --- NOUVEAU SYSTÈME DE GÉNÉRATION PDF NATIF ---
   useEffect(() => {
     if (orderToPreview) {
       const generatePdf = async () => {
@@ -66,28 +62,34 @@ export default function BonDeCommande() {
           `bc-preview-${orderToPreview.id}`
         );
         if (input) {
+          const toastId = toast.loading(
+            "Génération du document haute définition...",
+            { id: "pdf-bc" }
+          );
           try {
-            toast.loading("Génération du PDF...", { id: "pdf-bc" });
-            const canvas = await html2canvas(input, {
-              scale: 2,
-              useCORS: true,
-              width: 794,
+            const result = await window.electronAPI.generateNativePDF({
+              htmlContent: input.innerHTML,
+              fileName: `BC_${orderToPreview.order_number}.pdf`,
             });
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF("p", "mm", "a4");
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`BC_${orderToPreview.order_number}.pdf`);
-            toast.success("PDF téléchargé", { id: "pdf-bc" });
+
+            if (result?.success) {
+              toast.success("Bon de commande exporté avec succès !", {
+                id: toastId,
+              });
+            } else {
+              toast.dismiss(toastId);
+            }
           } catch (e) {
-            toast.error("Erreur PDF", { id: "pdf-bc" });
+            console.error("Erreur PDF:", e);
+            toast.error("Erreur lors de l'exportation PDF", { id: toastId });
           } finally {
             setOrderToPreview(null);
           }
         }
       };
-      setTimeout(generatePdf, 500);
+      // Petit délai pour assurer le rendu React dans le DOM caché
+      const timer = setTimeout(generatePdf, 150);
+      return () => clearTimeout(timer);
     }
   }, [orderToPreview]);
 
@@ -118,58 +120,69 @@ export default function BonDeCommande() {
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-gray-700">
-            {orders.map((order) => (
-              <tr
-                key={order.id}
-                className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-              >
-                <td className="px-6 py-4 font-bold dark:text-white">
-                  {order.order_number}
-                </td>
-                <td className="px-6 py-4 dark:text-gray-300">
-                  {order.supplierName}
-                </td>
-                <td className="px-6 py-4 font-black dark:text-white">
-                  {order.total.toLocaleString()} MAD
-                </td>
-                <td className="px-6 py-4 font-bold text-emerald-600">
-                  {order.totalPaid.toLocaleString()} MAD
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex justify-center items-center gap-1">
-                    <button
-                      onClick={() => setSelectedOrder(order)}
-                      className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                      title="Paiements"
-                    >
-                      <CreditCard className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setOrderToPreview(order)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                      title="Télécharger PDF"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingOrder(order);
-                        setIsModalOpen(true);
-                      }}
-                      className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setOrderToDelete(order.id)}
-                      className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+            {isLoading ? (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="text-center py-10 animate-pulse text-gray-400"
+                >
+                  Chargement...
                 </td>
               </tr>
-            ))}
+            ) : (
+              orders.map((order) => (
+                <tr
+                  key={order.id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                >
+                  <td className="px-6 py-4 font-bold dark:text-white">
+                    {order.order_number}
+                  </td>
+                  <td className="px-6 py-4 dark:text-gray-300">
+                    {order.supplierName}
+                  </td>
+                  <td className="px-6 py-4 font-black dark:text-white">
+                    {order.total.toLocaleString()} MAD
+                  </td>
+                  <td className="px-6 py-4 font-bold text-emerald-600">
+                    {order.totalPaid.toLocaleString()} MAD
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-center items-center gap-1">
+                      <button
+                        onClick={() => setSelectedOrder(order)}
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                        title="Paiements"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setOrderToPreview(order)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        title="Télécharger PDF"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingOrder(order);
+                          setIsModalOpen(true);
+                        }}
+                        className="p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setOrderToDelete(order.id)}
+                        className="p-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -204,8 +217,17 @@ export default function BonDeCommande() {
         message="Voulez-vous vraiment supprimer ce bon de commande ? Cette action est irréversible."
       />
 
+      {/* Conteneur de rendu PDF caché (Format A4 standard) */}
       {orderToPreview && (
-        <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+        <div
+          style={{
+            position: "absolute",
+            left: "-9999px",
+            top: 0,
+            width: "210mm",
+            backgroundColor: "white",
+          }}
+        >
           <div id={`bc-preview-${orderToPreview.id}`}>
             <BonDeCommandePDF order={orderToPreview} />
           </div>

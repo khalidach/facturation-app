@@ -1,6 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 
+// Fonction d'aide pour extraire les styles du thème personnalisé
 const getStyle = (styles, path) => {
   try {
     return path.split(".").reduce((acc, key) => acc && acc[key], styles) || {};
@@ -33,46 +34,94 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
 
   return (
     <div
-      className="bg-white p-10 font-sans text-xs flex flex-col"
+      className="pdf-container"
       style={{
         width: "210mm",
         minHeight: "297mm",
+        backgroundColor: "white",
+        padding: "40px",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "'Inter', sans-serif",
         ...getStyle(styles, "container"),
       }}
     >
+      {/* Styles critiques pour le rendu PDF natif */}
       <style>
-        {headerStyles.customCss}
-        {bodyStyles.customCss}
-        {footerStyles.customCss}
+        {`
+          @media print {
+            body { -webkit-print-color-adjust: exact; }
+          }
+          .pdf-container * { box-sizing: border-box; }
+          .flex { display: flex; }
+          .flex-col { flex-direction: column; }
+          .flex-grow { flex-grow: 1; }
+          .justify-between { justify-content: space-between; }
+          .items-center { align-items: center; }
+          .items-end { align-items: flex-end; }
+          .text-right { text-align: right; }
+          .uppercase { text-transform: uppercase; }
+          .mb-8 { margin-bottom: 32px; }
+          .mt-1 { margin-top: 4px; }
+          .gap-4 { gap: 16px; }
+          .gap-2 { gap: 8px; }
+          .flex-wrap { flex-wrap: wrap; }
+          .justify-center { justify-content: center; }
+          
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { padding: 12px 8px; border-bottom: 1px solid #e5e7eb; }
+          tr { page-break-inside: avoid; }
+          
+          ${headerStyles.customCss || ""}
+          ${bodyStyles.customCss || ""}
+          ${footerStyles.customCss || ""}
+        `}
       </style>
+
       <div className="flex-grow">
-        <header
-          className="header-container"
-          style={getStyle(styles, "header.container")}
-        >
+        {/* HEADER */}
+        <header style={getStyle(styles, "header.container")}>
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-4">
               {settings?.logo && (
                 <img
                   src={settings.logo}
                   alt="Logo"
-                  style={getStyle(styles, "header.logo")}
+                  style={{
+                    maxHeight: "80px",
+                    width: "auto",
+                    ...getStyle(styles, "header.logo"),
+                  }}
                 />
               )}
-              <h1 style={getStyle(styles, "header.agencyName")}>
+              <h1
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "bold",
+                  ...getStyle(styles, "header.agencyName"),
+                }}
+              >
                 {settings?.agencyName || "Votre Agence"}
               </h1>
             </div>
-            <div className="flex flex-col items-end flex-1 text-right">
+            <div className="flex flex-col items-end text-right">
               <h2
                 className="uppercase"
-                style={getStyle(styles, "header.factureType")}
+                style={{
+                  fontSize: "22px",
+                  fontWeight: "900",
+                  color: "#10b981",
+                  ...getStyle(styles, "header.factureType"),
+                }}
               >
                 Bon de Commande
               </h2>
               <p
-                className="mt-1"
-                style={getStyle(styles, "header.factureNumber")}
+                className=""
+                style={{
+                  fontWeight: "bold",
+                  ...getStyle(styles, "header.factureNumber"),
+                }}
               >
                 N° : {order.order_number}
               </p>
@@ -83,59 +132,100 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
           </div>
         </header>
 
-        <main
-          className="body-container"
-          style={getStyle(styles, "body.container")}
-        >
-          <div style={getStyle(styles, "body.clientInfo.container")}>
-            <p className="font-bold text-gray-500 uppercase text-[10px] mb-1">
+        {/* BODY */}
+        <main style={getStyle(styles, "body.container")}>
+          <div
+            style={{
+              marginBottom: "30px",
+              padding: "15px",
+              borderLeft: "4px solid #10b981",
+              backgroundColor: "#f0fdf4",
+              ...getStyle(styles, "body.clientInfo.container"),
+            }}
+          >
+            <p
+              style={{
+                fontSize: "10px",
+                fontWeight: "bold",
+                color: "#059669",
+                textTransform: "uppercase",
+                marginBottom: "4px",
+              }}
+            >
               Fournisseur :
             </p>
-            <p style={getStyle(styles, "body.clientInfo.clientName")}>
+            <p
+              style={{
+                fontWeight: "bold",
+                fontSize: "14px",
+                ...getStyle(styles, "body.clientInfo.clientName"),
+              }}
+            >
               {order.supplierName}
             </p>
-            <p style={getStyle(styles, "body.clientInfo.clientAddress")}>
+            <p
+              style={{
+                color: "#4b5563",
+                ...getStyle(styles, "body.clientInfo.clientAddress"),
+              }}
+            >
               {order.supplierAddress}
             </p>
             {order.supplierICE && (
-              <p style={getStyle(styles, "body.clientInfo.clientICE")}>
+              <p
+                style={{
+                  fontSize: "11px",
+                  marginTop: "4px",
+                  ...getStyle(styles, "body.clientInfo.clientICE"),
+                }}
+              >
                 ICE : {order.supplierICE}
               </p>
             )}
           </div>
 
           <table
-            className="table-container"
             style={{
               ...getStyle(styles, "body.table.container"),
               minHeight: "300px",
             }}
           >
             <thead>
-              <tr style={getStyle(styles, "body.table.row")}>
-                <th style={getStyle(styles, "body.table.header")}>
+              <tr
+                style={{
+                  backgroundColor: "#f9fafb",
+                  ...getStyle(styles, "body.table.row"),
+                }}
+              >
+                <th
+                  style={{
+                    textAlign: "left",
+                    ...getStyle(styles, "body.table.header"),
+                  }}
+                >
                   DÉSIGNATION
                 </th>
                 <th
                   style={{
-                    ...getStyle(styles, "body.table.header"),
                     textAlign: "center",
+                    width: "60px",
+                    ...getStyle(styles, "body.table.header"),
                   }}
                 >
                   QTÉ
                 </th>
                 <th
                   style={{
-                    ...getStyle(styles, "body.table.header"),
                     textAlign: "right",
+                    ...getStyle(styles, "body.table.header"),
                   }}
                 >
                   P.U (HT)
                 </th>
                 <th
                   style={{
-                    ...getStyle(styles, "body.table.header"),
                     textAlign: "right",
+                    ...getStyle(styles, "body.table.header"),
                   }}
                 >
                   TOTAL (HT)
@@ -147,70 +237,135 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
                 <tr key={index} style={getStyle(styles, "body.table.row")}>
                   <td
                     style={{
-                      ...getStyle(styles, "body.table.cell"),
                       whiteSpace: "pre-wrap",
+                      ...getStyle(styles, "body.table.cell"),
                     }}
                   >
                     {item.description}
                   </td>
                   <td
                     style={{
-                      ...getStyle(styles, "body.table.cell"),
                       textAlign: "center",
+                      ...getStyle(styles, "body.table.cell"),
                     }}
                   >
                     {item.quantity}
                   </td>
                   <td
                     style={{
-                      ...getStyle(styles, "body.table.cell"),
                       textAlign: "right",
+                      ...getStyle(styles, "body.table.cell"),
                     }}
                   >
-                    {Number(item.prixUnitaire).toLocaleString()}
+                    {Number(item.prixUnitaire).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}
                   </td>
                   <td
                     style={{
-                      ...getStyle(styles, "body.table.cell"),
                       textAlign: "right",
                       fontWeight: "bold",
+                      ...getStyle(styles, "body.table.cell"),
                     }}
                   >
-                    {(item.quantity * item.prixUnitaire).toLocaleString()}
+                    {(item.quantity * item.prixUnitaire).toLocaleString(
+                      undefined,
+                      { minimumFractionDigits: 2 }
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <div style={getStyle(styles, "body.totals.container")}>
-            <div style={getStyle(styles, "body.totals.totalRow")}>
-              <span style={getStyle(styles, "body.totals.label")}>
-                TOTAL COMMANDE
-              </span>
-              <span style={getStyle(styles, "body.totals.value")}>
-                {Number(order.total).toLocaleString()} MAD
-              </span>
+          {/* TOTALS */}
+          <div
+            style={{
+              marginTop: "30px",
+              display: "flex",
+              justifyContent: "flex-end",
+              ...getStyle(styles, "body.totals.container"),
+            }}
+          >
+            <div
+              style={{
+                width: "250px",
+                padding: "15px",
+                backgroundColor: "#f9fafb",
+                borderRadius: "8px",
+              }}
+            >
+              <div
+                className="flex justify-between"
+                style={{
+                  fontWeight: "900",
+                  fontSize: "14px",
+                  ...getStyle(styles, "body.totals.totalRow"),
+                }}
+              >
+                <span style={getStyle(styles, "body.totals.label")}>
+                  TOTAL COMMANDE :
+                </span>
+                <span style={getStyle(styles, "body.totals.value")}>
+                  {Number(order.total).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                  })}{" "}
+                  MAD
+                </span>
+              </div>
             </div>
           </div>
+
+          {order.notes && (
+            <div
+              style={{
+                marginTop: "30px",
+                padding: "10px",
+                border: "1px dashed #e5e7eb",
+                borderRadius: "4px",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: "10px",
+                  fontWeight: "bold",
+                  color: "#9ca3af",
+                  textTransform: "uppercase",
+                }}
+              >
+                Notes / Instructions :
+              </p>
+              <p style={{ fontSize: "11px", color: "#4b5563" }}>
+                {order.notes}
+              </p>
+            </div>
+          )}
         </main>
       </div>
 
+      {/* FOOTER */}
       <footer
-        className="footer-container"
-        style={getStyle(styles, "footer.container")}
+        style={{
+          borderTop: "1px solid #eee",
+          paddingTop: "20px",
+          ...getStyle(styles, "footer.container"),
+        }}
       >
-        <div className="flex gap-2 justify-center flex-wrap">
+        <div
+          className="flex gap-2 justify-center flex-wrap"
+          style={{ fontSize: "9px", color: "#6b7280", textAlign: "center" }}
+        >
           {[
             `Sté. ${settings?.agencyName || ""}`,
-            settings?.address,
-            settings?.phone,
-            settings?.ice,
+            settings?.address && `Adresse : ${settings.address}`,
+            settings?.phone && `Tél : ${settings.phone}`,
+            settings?.ice && `ICE : ${settings.ice}`,
+            settings?.if && `IF : ${settings.if}`,
           ]
             .filter(Boolean)
             .map((item, idx) => (
               <p key={idx} style={getStyle(styles, "footer.text")}>
-                {idx > 0 ? `- ${item}` : item}
+                {idx > 0 ? `| ${item}` : item}
               </p>
             ))}
         </div>

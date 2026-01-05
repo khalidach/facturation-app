@@ -14,8 +14,6 @@ import FactureForm from "@/components/facturation/FactureForm.jsx";
 import FacturePDF from "@/components/facturation/FacturePDF.jsx";
 import PaymentManager from "@/components/facturation/PaymentManager.jsx";
 import { toast } from "react-hot-toast";
-import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
 import PaginationControls from "@/components/PaginationControls.jsx";
 
 export default function Facturation() {
@@ -58,7 +56,6 @@ export default function Facturation() {
   const factures = facturesResponse?.data ?? [];
   const pagination = facturesResponse?.pagination;
 
-  // Fonction pour déterminer le statut de paiement
   const getPaymentStatus = (total, totalPaid) => {
     if (totalPaid <= 0) {
       return {
@@ -67,7 +64,6 @@ export default function Facturation() {
       };
     }
     if (totalPaid < total - 0.1) {
-      // Marge d'erreur pour les flottants
       return {
         label: "Partiel",
         class: "bg-amber-100 text-amber-600 dark:bg-amber-900/20",
@@ -90,7 +86,8 @@ export default function Facturation() {
   });
 
   const { mutate: updateFacture } = useMutation({
-    mutationFn: (data) => window.electronAPI.updateFacture(data.id, data),
+    mutationFn: (data) =>
+      window.electronAPI.updateFacture({ id: data.id, data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document mis à jour avec succès !");
@@ -100,7 +97,7 @@ export default function Facturation() {
   });
 
   const { mutate: deleteFacture } = useMutation({
-    mutationFn: window.electronAPI.deleteFacture,
+    mutationFn: (id) => window.electronAPI.deleteFacture(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document supprimé avec succès !");
@@ -117,6 +114,7 @@ export default function Facturation() {
     }
   };
 
+  // --- NOUVEAU MOTEUR DE GÉNÉRATION PDF ---
   useEffect(() => {
     if (factureToPreview) {
       const generatePdf = async () => {
@@ -124,32 +122,36 @@ export default function Facturation() {
           `pdf-preview-${factureToPreview.id}`
         );
         if (input) {
+          const toastId = toast.loading(
+            "Préparation du PDF haute définition...",
+            { id: "pdf-toast" }
+          );
           try {
-            toast.loading("Génération du PDF...", { id: "pdf-toast" });
-            const canvas = await html2canvas(input, {
-              scale: 2,
-              useCORS: true,
-              logging: false,
-              width: 794,
+            // Utilise l'API native d'Electron pour une qualité parfaite
+            const result = await window.electronAPI.generateNativePDF({
+              htmlContent: input.innerHTML,
+              fileName: `${factureToPreview.type}_${factureToPreview.facture_number}.pdf`,
             });
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF("p", "mm", "a4");
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-            pdf.save(
-              `${factureToPreview.type}_${factureToPreview.facture_number}.pdf`
-            );
-            toast.success("PDF téléchargé !", { id: "pdf-toast" });
+
+            if (result.success) {
+              toast.success("Document exporté avec succès !", {
+                id: "pdf-toast",
+              });
+            } else {
+              toast.dismiss("pdf-toast");
+            }
           } catch (error) {
-            console.error("Échec de la génération du PDF :", error);
-            toast.error("Échec de la génération du PDF.", { id: "pdf-toast" });
+            console.error("Erreur PDF Native:", error);
+            toast.error("Erreur lors de la génération du PDF.", {
+              id: "pdf-toast",
+            });
           } finally {
             setFactureToPreview(null);
           }
         }
       };
-      const timer = setTimeout(generatePdf, 300);
+      // Petit délai pour laisser React injecter le HTML dans le DOM caché
+      const timer = setTimeout(generatePdf, 150);
       return () => clearTimeout(timer);
     }
   }, [factureToPreview]);
@@ -279,7 +281,6 @@ export default function Facturation() {
                         {facture.total.toLocaleString()}{" "}
                         <span className="text-[10px] opacity-40">MAD</span>
                       </td>
-                      {/* Nouvelle cellule Statut */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${status.class}`}
@@ -374,13 +375,14 @@ export default function Facturation() {
         />
       </div>
 
+      {/* Rendu caché pour la capture PDF Native */}
       {factureToPreview && (
         <div
           style={{
             position: "absolute",
             left: "-9999px",
             top: 0,
-            width: "210mm",
+            width: "210mm", // Largeur standard A4
             backgroundColor: "white",
           }}
         >

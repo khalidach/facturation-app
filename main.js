@@ -1,5 +1,6 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const db = require("./backend/database");
 const { machineIdSync } = require("node-machine-id");
 
@@ -167,7 +168,6 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       values.push(data.facture_id || null);
     }
 
-    // Support linking expenses to purchase orders
     if (tableName === "expenses") {
       columns.push("bon_de_commande_id");
       values.push(data.bon_de_commande_id || null);
@@ -663,7 +663,7 @@ ipcMain.handle("db:getPaymentsByBonDeCommande", (event, bcId) => {
     throw error;
   }
 });
-// Add this inside the IPC HANDLERS section of main.js
+
 ipcMain.handle("db:getBonDeCommandeById", (event, id) => {
   try {
     return db
@@ -847,6 +847,66 @@ ipcMain.handle("license:verify", async (event, { licenseCode }) => {
   } catch (e) {
     console.error("Verification error:", e);
     throw new Error("Verification service unreachable.");
+  }
+});
+
+// --- 9. NATIVE PDF GENERATION ---
+ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
+  const printWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+    },
+  });
+
+  // Inject common print resets to ensure CSS accuracy from your theme
+  const styledHtml = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @page { size: A4; margin: 0; }
+          body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
+          * { box-sizing: border-box; }
+          @media print {
+            body { background-color: white !important; }
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body>${htmlContent}</body>
+    </html>
+  `;
+
+  try {
+    await printWindow.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`
+    );
+
+    const pdfBuffer = await printWindow.webContents.printToPDF({
+      margins: { marginType: "none" },
+      pageSize: "A4",
+      printBackground: true,
+      landscape: false,
+    });
+
+    const { filePath } = await dialog.showSaveDialog({
+      title: "Enregistrer le document PDF",
+      defaultPath: path.join(app.getPath("downloads"), fileName),
+      filters: [{ name: "Adobe PDF", extensions: ["pdf"] }],
+    });
+
+    if (filePath) {
+      fs.writeFileSync(filePath, pdfBuffer);
+      return { success: true, filePath };
+    }
+    return { success: false, reason: "Cancelled by user" };
+  } catch (error) {
+    console.error("Native PDF Generation Error:", error);
+    throw error;
+  } finally {
+    printWindow.close();
   }
 });
 
