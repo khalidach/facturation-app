@@ -1,3 +1,5 @@
+// frontend/src/components/facturation/PaymentManager.jsx
+
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -46,7 +48,6 @@ export default function PaymentManager({ facture }) {
         category: "Vente",
       };
 
-      // FIX: Wrap id and data for the backend IPC handler
       if (editingPayment) {
         return window.electronAPI.updateTransaction({
           id: editingPayment.id,
@@ -230,13 +231,18 @@ export default function PaymentManager({ facture }) {
               </label>
               <select
                 value={formData.payment_method}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    payment_method: e.target.value,
-                    in_bank: e.target.value !== "cash",
-                  })
-                }
+                onChange={(e) => {
+                  const method = e.target.value;
+                  let updates = { payment_method: method };
+                  if (method === "cash") {
+                    updates.in_bank = false;
+                    updates.is_cashed = true;
+                  } else if (["virement", "versement"].includes(method)) {
+                    updates.in_bank = true;
+                    updates.is_cashed = true;
+                  }
+                  setFormData({ ...formData, ...updates });
+                }}
                 className="input font-black"
               >
                 <option value="cash">Espèces (Caisse)</option>
@@ -246,20 +252,38 @@ export default function PaymentManager({ facture }) {
               </select>
             </div>
             <div className="flex items-center gap-6 pt-6">
-              {formData.payment_method !== "cash" && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_cashed}
-                    onChange={(e) =>
-                      setFormData({ ...formData, is_cashed: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-blue-600"
-                  />
-                  <span className="text-xs font-bold text-gray-500">
-                    Encaissé / Confirmé
-                  </span>
-                </label>
+              {formData.payment_method === "cheque" && (
+                <>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_cashed}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          is_cashed: e.target.checked,
+                        })
+                      }
+                      className="w-4 h-4 rounded text-blue-600"
+                    />
+                    <span className="text-xs font-bold text-gray-500">
+                      Encaissé / Confirmé
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.in_bank}
+                      onChange={(e) =>
+                        setFormData({ ...formData, in_bank: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-blue-600"
+                    />
+                    <span className="text-xs font-bold text-gray-500">
+                      En banque
+                    </span>
+                  </label>
+                </>
               )}
             </div>
           </div>

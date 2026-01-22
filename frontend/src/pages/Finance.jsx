@@ -1,3 +1,5 @@
+// frontend/src/pages/Finance.jsx
+
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -206,7 +208,6 @@ export default function Finance() {
 
   const { mutate: saveTx, isPending } = useMutation({
     mutationFn: (data) =>
-      // FIX: Wrap id and data into a single object for the IPC handler
       editingTx
         ? window.electronAPI.updateTransaction({ id: editingTx.id, data })
         : window.electronAPI.createTransaction(data),
@@ -562,9 +563,18 @@ export default function Finance() {
               </label>
               <select
                 value={formData.payment_method}
-                onChange={(e) =>
-                  setFormData({ ...formData, payment_method: e.target.value })
-                }
+                onChange={(e) => {
+                  const method = e.target.value;
+                  let updates = { payment_method: method };
+                  if (method === "cash") {
+                    updates.in_bank = false;
+                    updates.is_cashed = true;
+                  } else if (method === "virement" || method === "versement") {
+                    updates.in_bank = true;
+                    updates.is_cashed = true;
+                  }
+                  setFormData({ ...formData, ...updates });
+                }}
                 className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-black"
               >
                 <option value="cash">Espèces</option>
@@ -574,36 +584,39 @@ export default function Finance() {
               </select>
             </div>
             <div className="flex items-center gap-8 bg-gray-50 p-4 rounded-2xl px-6 h-[60px]">
-              {["cheque", "virement", "versement"].includes(
-                formData.payment_method,
-              ) && (
-                <label className="flex items-center cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_cashed}
-                    onChange={(e) =>
-                      setFormData({ ...formData, is_cashed: e.target.checked })
-                    }
-                    className="w-5 h-5 rounded-lg text-emerald-600 mr-2"
-                  />
-                  <span className="text-[10px] font-black uppercase text-gray-500">
-                    Encaissé
-                  </span>
-                </label>
+              {formData.payment_method === "cheque" && (
+                <>
+                  <label className="flex items-center cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_cashed}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          is_cashed: e.target.checked,
+                        })
+                      }
+                      className="w-5 h-5 rounded-lg text-emerald-600 mr-2"
+                    />
+                    <span className="text-[10px] font-black uppercase text-gray-500">
+                      Encaissé
+                    </span>
+                  </label>
+                  <label className="flex items-center cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={formData.in_bank}
+                      onChange={(e) =>
+                        setFormData({ ...formData, in_bank: e.target.checked })
+                      }
+                      className="w-5 h-5 rounded-lg text-blue-600 mr-2"
+                    />
+                    <span className="text-[10px] font-black uppercase text-gray-500">
+                      En banque
+                    </span>
+                  </label>
+                </>
               )}
-              <label className="flex items-center cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={formData.in_bank}
-                  onChange={(e) =>
-                    setFormData({ ...formData, in_bank: e.target.checked })
-                  }
-                  className="w-5 h-5 rounded-lg text-blue-600 mr-2"
-                />
-                <span className="text-[10px] font-black uppercase text-gray-500">
-                  En banque
-                </span>
-              </label>
             </div>
           </div>
           {formData.payment_method === "cheque" && (

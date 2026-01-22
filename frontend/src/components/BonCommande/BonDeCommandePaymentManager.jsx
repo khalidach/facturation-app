@@ -1,3 +1,5 @@
+// frontend/src/components/BonCommande/BonDeCommandePaymentManager.jsx
+
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,7 +18,6 @@ export default function BonDeCommandePaymentManager({ order }) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
 
-  // État initial du formulaire
   const [formData, setFormData] = useState({
     amount: "",
     date: new Date().toISOString().split("T")[0],
@@ -31,13 +32,11 @@ export default function BonDeCommandePaymentManager({ order }) {
     in_bank: false,
   });
 
-  // Récupération des paiements existants
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["bc-payments", order.id],
     queryFn: () => window.electronAPI.getPaymentsByBonDeCommande(order.id),
   });
 
-  // Mutation pour sauvegarder (créer ou mettre à jour)
   const { mutate: savePayment, isPending: isSaving } = useMutation({
     mutationFn: (data) => {
       const payload = {
@@ -48,7 +47,6 @@ export default function BonDeCommandePaymentManager({ order }) {
         category: "Achat Fournisseur",
       };
 
-      // FIX: Wrap id and data into a single object for the IPC handler
       if (editingPayment) {
         return window.electronAPI.updateTransaction({
           id: editingPayment.id,
@@ -121,10 +119,23 @@ export default function BonDeCommandePaymentManager({ order }) {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+
+    if (name === "payment_method") {
+      let updates = { payment_method: value };
+      if (value === "cash") {
+        updates.in_bank = false;
+        updates.is_cashed = true;
+      } else if (["virement", "versement"].includes(value)) {
+        updates.in_bank = true;
+        updates.is_cashed = true;
+      }
+      setFormData((prev) => ({ ...prev, ...updates }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: type === "checkbox" ? checked : value,
+      }));
+    }
   };
 
   const handleConfirmAction = () => {
@@ -259,26 +270,30 @@ export default function BonDeCommandePaymentManager({ order }) {
           )}
 
           <div className="flex gap-6 px-1">
-            <label className="flex items-center text-[10px] font-black uppercase text-gray-500 cursor-pointer">
-              <input
-                type="checkbox"
-                name="is_cashed"
-                checked={formData.is_cashed}
-                onChange={handleInputChange}
-                className="mr-2 rounded text-emerald-600"
-              />{" "}
-              Confirmé / Encaissé
-            </label>
-            <label className="flex items-center text-[10px] font-black uppercase text-gray-500 cursor-pointer">
-              <input
-                type="checkbox"
-                name="in_bank"
-                checked={formData.in_bank}
-                onChange={handleInputChange}
-                className="mr-2 rounded text-blue-600"
-              />{" "}
-              En banque
-            </label>
+            {formData.payment_method === "cheque" && (
+              <>
+                <label className="flex items-center text-[10px] font-black uppercase text-gray-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="is_cashed"
+                    checked={formData.is_cashed}
+                    onChange={handleInputChange}
+                    className="mr-2 rounded text-emerald-600"
+                  />{" "}
+                  Confirmé / Encaissé
+                </label>
+                <label className="flex items-center text-[10px] font-black uppercase text-gray-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="in_bank"
+                    checked={formData.in_bank}
+                    onChange={handleInputChange}
+                    className="mr-2 rounded text-blue-600"
+                  />{" "}
+                  En banque
+                </label>
+              </>
+            )}
           </div>
 
           <button
