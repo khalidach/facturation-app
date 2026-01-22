@@ -50,7 +50,7 @@ export default function FacturePDF({ facture, themeStyles }) {
         ...getStyle(styles, "container"),
       }}
     >
-      {/* Styles critiques pour le moteur de rendu PDF (Remplace Tailwind dans le PDF) */}
+      {/* Styles critiques pour le moteur de rendu PDF */}
       <style>
         {`
           @media print {
@@ -62,6 +62,7 @@ export default function FacturePDF({ facture, themeStyles }) {
           .flex-grow { flex-grow: 1; }
           .justify-between { justify-content: space-between; }
           .items-center { align-items: center; }
+          .items-start { align-items: flex-start; }
           .items-end { align-items: flex-end; }
           .text-right { text-align: right; }
           .uppercase { text-transform: uppercase; }
@@ -83,7 +84,7 @@ export default function FacturePDF({ facture, themeStyles }) {
       </style>
 
       <div className="flex-grow">
-        {/* HEADER */}
+        {/* HEADER - Logo and Document Type only */}
         <header style={getStyle(styles, "header.container")}>
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-4">
@@ -121,23 +122,12 @@ export default function FacturePDF({ facture, themeStyles }) {
               >
                 {facture.type === "devis" ? "Devis" : "Facture"}
               </h2>
-              <p
-                className=""
-                style={{
-                  fontWeight: "bold",
-                  ...getStyle(styles, "header.factureNumber"),
-                }}
-              >
-                N° : {facture.facture_number}
-              </p>
-              <p style={getStyle(styles, "header.date")}>
-                Date : {new Date(facture.date).toLocaleDateString("fr-FR")}
-              </p>
               {settings?.ice && (
                 <p
                   style={{
                     fontSize: "10px",
                     color: "#6b7280",
+                    marginTop: "4px",
                     ...getStyle(styles, "header.ice"),
                   }}
                 >
@@ -148,18 +138,21 @@ export default function FacturePDF({ facture, themeStyles }) {
           </div>
         </header>
 
-        {/* BODY */}
+        {/* BODY - Client Info, Facture Number and Date in a shared bordered box */}
         <main style={getStyle(styles, "body.container")}>
-          {facture?.clientName && (
-            <div
-              style={{
-                marginBottom: "30px",
-                padding: "15px",
-                backgroundColor: "#f9fafb",
-                borderRadius: "8px",
-                ...getStyle(styles, "body.clientInfo.container"),
-              }}
-            >
+          <div
+            className="flex justify-between items-start"
+            style={{
+              marginBottom: "30px",
+              padding: "20px",
+              backgroundColor: "#f9fafb",
+              border: "1px solid #e5e7eb",
+              borderRadius: "12px",
+              ...getStyle(styles, "body.clientInfo.container"),
+            }}
+          >
+            {/* Left: Client Information */}
+            <div className="flex flex-col">
               <p
                 style={{
                   fontWeight: "bold",
@@ -172,6 +165,7 @@ export default function FacturePDF({ facture, themeStyles }) {
               </p>
               <p
                 style={{
+                  fontSize: "12px",
                   color: "#4b5563",
                   ...getStyle(styles, "body.clientInfo.clientAddress"),
                 }}
@@ -190,7 +184,31 @@ export default function FacturePDF({ facture, themeStyles }) {
                 </p>
               )}
             </div>
-          )}
+
+            {/* Right: Document Number and Date */}
+            <div className="flex flex-col items-end text-right">
+              <p
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  color: "#111827",
+                  ...getStyle(styles, "header.factureNumber"),
+                }}
+              >
+                N° : {facture.facture_number}
+              </p>
+              <p
+                style={{
+                  fontSize: "14px",
+                  color: "#374151",
+                  marginTop: "4px",
+                  ...getStyle(styles, "header.date"),
+                }}
+              >
+                Date : {new Date(facture.date).toLocaleDateString("fr-FR")}
+              </p>
+            </div>
+          </div>
 
           <table
             style={{

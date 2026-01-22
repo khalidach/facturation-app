@@ -116,18 +116,6 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
               >
                 Bon de Commande
               </h2>
-              <p
-                className=""
-                style={{
-                  fontWeight: "bold",
-                  ...getStyle(styles, "header.factureNumber"),
-                }}
-              >
-                N° : {order.order_number}
-              </p>
-              <p style={getStyle(styles, "header.date")}>
-                Date : {new Date(order.date).toLocaleDateString("fr-FR")}
-              </p>
             </div>
           </div>
         </header>
@@ -140,48 +128,75 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
               padding: "15px",
               borderLeft: "4px solid #10b981",
               backgroundColor: "#f0fdf4",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               ...getStyle(styles, "body.clientInfo.container"),
             }}
           >
-            <p
-              style={{
-                fontSize: "10px",
-                fontWeight: "bold",
-                color: "#059669",
-                textTransform: "uppercase",
-                marginBottom: "4px",
-              }}
-            >
-              Fournisseur :
-            </p>
-            <p
-              style={{
-                fontWeight: "bold",
-                fontSize: "14px",
-                ...getStyle(styles, "body.clientInfo.clientName"),
-              }}
-            >
-              {order.supplierName}
-            </p>
-            <p
-              style={{
-                color: "#4b5563",
-                ...getStyle(styles, "body.clientInfo.clientAddress"),
-              }}
-            >
-              {order.supplierAddress}
-            </p>
-            {order.supplierICE && (
+            <div>
               <p
                 style={{
-                  fontSize: "11px",
-                  marginTop: "4px",
-                  ...getStyle(styles, "body.clientInfo.clientICE"),
+                  fontSize: "10px",
+                  fontWeight: "bold",
+                  color: "#059669",
+                  textTransform: "uppercase",
+                  marginBottom: "4px",
                 }}
               >
-                ICE : {order.supplierICE}
+                Fournisseur :
               </p>
-            )}
+              <p
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                  ...getStyle(styles, "body.clientInfo.clientName"),
+                }}
+              >
+                {order.supplierName}
+              </p>
+              <p
+                style={{
+                  color: "#4b5563",
+                  ...getStyle(styles, "body.clientInfo.clientAddress"),
+                }}
+              >
+                {order.supplierAddress}
+              </p>
+              {order.supplierICE && (
+                <p
+                  style={{
+                    fontSize: "11px",
+                    marginTop: "4px",
+                    ...getStyle(styles, "body.clientInfo.clientICE"),
+                  }}
+                >
+                  ICE : {order.supplierICE}
+                </p>
+              )}
+            </div>
+
+            <div style={{ textAlign: "right" }}>
+              <p
+                style={{
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                  color: "#065f46",
+                  ...getStyle(styles, "header.factureNumber"),
+                }}
+              >
+                N° : {order.order_number}
+              </p>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "#374151",
+                  ...getStyle(styles, "header.date"),
+                }}
+              >
+                Date : {new Date(order.date).toLocaleDateString("fr-FR")}
+              </p>
+            </div>
           </div>
 
           <table
@@ -270,7 +285,7 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
                   >
                     {(item.quantity * item.prixUnitaire).toLocaleString(
                       undefined,
-                      { minimumFractionDigits: 2 }
+                      { minimumFractionDigits: 2 },
                     )}
                   </td>
                 </tr>

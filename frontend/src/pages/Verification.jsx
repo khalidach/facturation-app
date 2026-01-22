@@ -22,12 +22,16 @@ export default function Verification({ onSuccess }) {
 
   const handleVerify = async () => {
     // 1. VÉRIFICATION DÉFENSIVE : S'assurer que nous sommes dans Electron
-    if (!window.electronAPI) {
+    // Correction : On vérifie aussi que la fonction spécifique 'verifyLicense' existe
+    if (
+      !window.electronAPI ||
+      typeof window.electronAPI.verifyLicense !== "function"
+    ) {
       setVerificationStatus({
         checked: true,
         valid: false,
         message:
-          "Erreur Critique : Pont Electron non trouvé. Veuillez lancer l'application via le lanceur de bureau, et non un navigateur web.",
+          "Erreur Critique : Pont Electron non configuré ou fonction de licence manquante. Veuillez vérifier preload.js.",
       });
       toast.error("Incompatibilité d'environnement détectée.");
       return;
@@ -38,7 +42,10 @@ export default function Verification({ onSuccess }) {
 
     try {
       // 2. APPEL DE L'API
-      const data = await window.electronAPI.licenseVerify(licenseCode.trim());
+      // Correction : Changement du nom de la fonction et passage d'un objet { licenseCode }
+      const data = await window.electronAPI.verifyLicense({
+        licenseCode: licenseCode.trim(),
+      });
 
       if (data.success) {
         setVerificationStatus({
