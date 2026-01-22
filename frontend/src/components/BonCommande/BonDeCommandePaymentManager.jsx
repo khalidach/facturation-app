@@ -47,9 +47,13 @@ export default function BonDeCommandePaymentManager({ order }) {
         contact_person: order.supplierName,
         category: "Achat Fournisseur",
       };
-      // Si on édite, on appelle update, sinon create
+
+      // FIX: Wrap id and data into a single object for the IPC handler
       if (editingPayment) {
-        return window.electronAPI.updateTransaction(editingPayment.id, payload);
+        return window.electronAPI.updateTransaction({
+          id: editingPayment.id,
+          data: payload,
+        });
       }
       return window.electronAPI.createTransaction(payload);
     },
@@ -58,7 +62,7 @@ export default function BonDeCommandePaymentManager({ order }) {
       queryClient.invalidateQueries({ queryKey: ["bon-de-commandes"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
       toast.success(
-        editingPayment ? "Règlement mis à jour" : "Règlement enregistré"
+        editingPayment ? "Règlement mis à jour" : "Règlement enregistré",
       );
       resetForm();
     },
@@ -112,7 +116,6 @@ export default function BonDeCommandePaymentManager({ order }) {
     setIsAdding(true);
   };
 
-  // Calcul du solde
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = order.total - totalPaid;
 
@@ -124,28 +127,18 @@ export default function BonDeCommandePaymentManager({ order }) {
     }));
   };
 
-  /**
-   * Validation du montant avant soumission
-   */
   const handleConfirmAction = () => {
     const inputAmount = parseFloat(formData.amount);
-
     if (isNaN(inputAmount) || inputAmount <= 0) {
       return toast.error("Veuillez saisir un montant valide.");
     }
-
-    // Limite autorisée : Reste à payer + montant actuel si on est en modification
     const currentLimit =
       remaining + (editingPayment ? editingPayment.amount : 0);
-
-    // Vérification stricte contre le dépassement du prix principal
     if (inputAmount > currentLimit + 0.01) {
-      // Marge d'erreur minime pour les calculs flottants
       return toast.error(
-        `Le paiement ne peut pas dépasser le solde restant (${currentLimit.toLocaleString()} MAD)`
+        `Le paiement ne peut pas dépasser le solde restant (${currentLimit.toLocaleString()} MAD)`,
       );
     }
-
     savePayment({ ...formData, amount: inputAmount });
   };
 
@@ -273,7 +266,7 @@ export default function BonDeCommandePaymentManager({ order }) {
                 checked={formData.is_cashed}
                 onChange={handleInputChange}
                 className="mr-2 rounded text-emerald-600"
-              />
+              />{" "}
               Confirmé / Encaissé
             </label>
             <label className="flex items-center text-[10px] font-black uppercase text-gray-500 cursor-pointer">
@@ -283,7 +276,7 @@ export default function BonDeCommandePaymentManager({ order }) {
                 checked={formData.in_bank}
                 onChange={handleInputChange}
                 className="mr-2 rounded text-blue-600"
-              />
+              />{" "}
               En banque
             </label>
           </div>
@@ -296,8 +289,8 @@ export default function BonDeCommandePaymentManager({ order }) {
             {isSaving
               ? "Traitement..."
               : editingPayment
-              ? "Mettre à jour le règlement"
-              : "Confirmer le Paiement"}
+                ? "Mettre à jour le règlement"
+                : "Confirmer le Paiement"}
           </button>
         </div>
       )}
@@ -323,11 +316,7 @@ export default function BonDeCommandePaymentManager({ order }) {
               >
                 <div className="flex items-center gap-4">
                   <div
-                    className={`p-2 rounded-lg ${
-                      p.payment_method === "cash"
-                        ? "bg-amber-100 text-amber-600 dark:bg-amber-900/20"
-                        : "bg-blue-100 text-blue-600 dark:bg-blue-900/20"
-                    }`}
+                    className={`p-2 rounded-lg ${p.payment_method === "cash" ? "bg-amber-100 text-amber-600 dark:bg-amber-900/20" : "bg-blue-100 text-blue-600 dark:bg-blue-900/20"}`}
                   >
                     <Banknote className="w-5 h-5" />
                   </div>

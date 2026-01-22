@@ -21,9 +21,7 @@ export default function PaymentManager({ facture }) {
     amount: "",
     date: new Date().toISOString().split("T")[0],
     payment_method: "cash",
-    description: `Paiement ${
-      facture.type === "facture" ? "Facture" : "Devis"
-    } ${facture.facture_number}`,
+    description: `Paiement ${facture.type === "facture" ? "Facture" : "Devis"} ${facture.facture_number}`,
     is_cashed: true,
     in_bank: false,
     cheque_number: "",
@@ -47,8 +45,13 @@ export default function PaymentManager({ facture }) {
         contact_person: facture.clientName,
         category: "Vente",
       };
+
+      // FIX: Wrap id and data for the backend IPC handler
       if (editingPayment) {
-        return window.electronAPI.updateTransaction(editingPayment.id, payload);
+        return window.electronAPI.updateTransaction({
+          id: editingPayment.id,
+          data: payload,
+        });
       }
       return window.electronAPI.createTransaction(payload);
     },
@@ -80,9 +83,7 @@ export default function PaymentManager({ facture }) {
       amount: "",
       date: new Date().toISOString().split("T")[0],
       payment_method: "cash",
-      description: `Paiement ${
-        facture.type === "facture" ? "Facture" : "Devis"
-      } ${facture.facture_number}`,
+      description: `Paiement ${facture.type === "facture" ? "Facture" : "Devis"} ${facture.facture_number}`,
       is_cashed: true,
       in_bank: false,
       cheque_number: "",
@@ -116,22 +117,16 @@ export default function PaymentManager({ facture }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     const inputAmount = parseFloat(formData.amount);
-    if (isNaN(inputAmount) || inputAmount <= 0) {
+    if (isNaN(inputAmount) || inputAmount <= 0)
       return toast.error("Montant invalide");
-    }
-
-    // Validation: Payement should not go over the montant
     const currentLimit =
       remaining + (editingPayment ? editingPayment.amount : 0);
     if (inputAmount > currentLimit + 0.01) {
-      // 0.01 buffer for floating point
       return toast.error(
-        `Le paiement ne peut pas dépasser le montant restant (${currentLimit.toLocaleString()} MAD)`
+        `Le paiement ne peut pas dépasser le montant restant (${currentLimit.toLocaleString()} MAD)`,
       );
     }
-
     savePayment(formData);
   };
 
@@ -157,9 +152,7 @@ export default function PaymentManager({ facture }) {
           </p>
           <div className="flex items-baseline gap-2 mt-1">
             <span
-              className={`text-3xl font-black ${
-                remaining <= 0.01 ? "text-emerald-600" : "text-rose-600"
-              }`}
+              className={`text-3xl font-black ${remaining <= 0.01 ? "text-emerald-600" : "text-rose-600"}`}
             >
               {Math.max(0, remaining).toLocaleString()}
             </span>
@@ -271,84 +264,26 @@ export default function PaymentManager({ facture }) {
             </div>
           </div>
 
-          {/* New Inputs for Cheque and Virement */}
           {formData.payment_method === "cheque" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                  Numéro du Chèque
-                </label>
-                <input
-                  type="text"
-                  value={formData.cheque_number}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cheque_number: e.target.value })
-                  }
-                  className="input font-bold"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                  Banque Émettrice
-                </label>
-                <input
-                  type="text"
-                  value={formData.bank_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bank_name: e.target.value })
-                  }
-                  className="input font-bold"
-                />
-              </div>
-            </div>
-          )}
-
-          {formData.payment_method === "virement" && (
-            <div className="space-y-6 animate-in slide-in-from-top-2">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                  Référence Virement / N°
-                </label>
-                <input
-                  type="text"
-                  value={formData.virement_number}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      virement_number: e.target.value,
-                    })
-                  }
-                  className="input font-bold"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                    Banque Source
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.bank_from}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bank_from: e.target.value })
-                    }
-                    className="input font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                    Banque Destination
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.bank_to}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bank_to: e.target.value })
-                    }
-                    className="input font-bold"
-                  />
-                </div>
-              </div>
+              <input
+                type="text"
+                value={formData.cheque_number}
+                onChange={(e) =>
+                  setFormData({ ...formData, cheque_number: e.target.value })
+                }
+                placeholder="N° Chèque"
+                className="input font-bold"
+              />
+              <input
+                type="text"
+                value={formData.bank_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, bank_name: e.target.value })
+                }
+                placeholder="Banque émettrice"
+                className="input font-bold"
+              />
             </div>
           )}
 
@@ -395,11 +330,7 @@ export default function PaymentManager({ facture }) {
             >
               <div className="flex items-center gap-4">
                 <div
-                  className={`p-3 rounded-xl ${
-                    p.payment_method === "cash"
-                      ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20"
-                      : "bg-blue-50 text-blue-600 dark:bg-blue-900/20"
-                  }`}
+                  className={`p-3 rounded-xl ${p.payment_method === "cash" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20" : "bg-blue-50 text-blue-600 dark:bg-blue-900/20"}`}
                 >
                   {getMethodIcon(p.payment_method)}
                 </div>
@@ -421,14 +352,6 @@ export default function PaymentManager({ facture }) {
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
                         <span className="text-[10px] font-black uppercase text-blue-500">
                           N° {p.cheque_number}
-                        </span>
-                      </>
-                    )}
-                    {p.virement_number && (
-                      <>
-                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                        <span className="text-[10px] font-black uppercase text-blue-500">
-                          Ref: {p.virement_number}
                         </span>
                       </>
                     )}

@@ -109,7 +109,6 @@ export default function Finance() {
     bon_de_commande_id: null,
   });
 
-  // Fetch linked Purchase Order details for validation
   const { data: linkedBC } = useQuery({
     queryKey: ["bc-details", formData.bon_de_commande_id],
     queryFn: () =>
@@ -119,9 +118,8 @@ export default function Finance() {
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target))
         setShowContactDropdown(false);
-      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -208,22 +206,20 @@ export default function Finance() {
 
   const { mutate: saveTx, isPending } = useMutation({
     mutationFn: (data) =>
+      // FIX: Wrap id and data into a single object for the IPC handler
       editingTx
-        ? window.electronAPI.updateTransaction(editingTx.id, data)
+        ? window.electronAPI.updateTransaction({ id: editingTx.id, data })
         : window.electronAPI.createTransaction(data),
     onSuccess: () => {
-      // Automatic Synchronization
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
       queryClient.invalidateQueries({ queryKey: ["bon-de-commandes"] });
-
-      if (formData.facture_id) {
+      if (formData.facture_id)
         queryClient.invalidateQueries({
           queryKey: ["payments", formData.facture_id],
         });
-      }
       toast.success(
-        `Enregistrement ${editingTx ? "mis à jour" : "sauvegardé"}`
+        `Enregistrement ${editingTx ? "mis à jour" : "sauvegardé"}`,
       );
       setIsModalOpen(false);
       setEditingTx(null);
@@ -246,20 +242,16 @@ export default function Finance() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const inputAmount = parseFloat(formData.amount);
-
-    // Amount Validation against Linked Purchase Order
     if (formData.bon_de_commande_id && linkedBC) {
       const currentLimit =
         linkedBC.total -
         linkedBC.totalPaid +
         (editingTx ? editingTx.amount : 0);
-      if (inputAmount > currentLimit + 0.01) {
+      if (inputAmount > currentLimit + 0.01)
         return toast.error(
-          `Le montant dépasse le solde restant du Bon de Commande (${currentLimit.toLocaleString()} MAD)`
+          `Le montant dépasse le solde restant (${currentLimit.toLocaleString()} MAD)`,
         );
-      }
     }
-
     saveTx(formData);
   };
 
@@ -278,7 +270,6 @@ export default function Finance() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Section En-tête */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-gray-900 dark:text-white tracking-tight">
@@ -289,50 +280,35 @@ export default function Finance() {
             Suivez chaque mouvement • Contrôle des flux de trésorerie
           </div>
         </div>
-
         <button
           onClick={() => {
             setEditingTx(null);
             setIsModalOpen(true);
           }}
-          className={`flex items-center justify-center px-8 py-4 rounded-[1.5rem] font-black text-white transition-all shadow-xl hover:scale-[1.02] active:scale-[0.98] ${
-            activeTab === "income"
-              ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
-              : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"
-          }`}
+          className={`flex items-center justify-center px-8 py-4 rounded-[1.5rem] font-black text-white transition-all shadow-xl hover:scale-[1.02] active:scale-[0.98] ${activeTab === "income" ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20" : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"}`}
         >
           <Plus className="w-6 h-6 mr-2" />
           <span>Nouveau {activeTab === "income" ? "Revenu" : "Dépense"}</span>
         </button>
       </div>
 
-      {/* Navigation & Recherche */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div className="inline-flex p-1.5 bg-gray-200/50 dark:bg-gray-800/50 backdrop-blur-md rounded-2xl border border-gray-100 dark:border-gray-700">
           <button
             onClick={() => setActiveTab("income")}
-            className={`flex items-center px-8 py-3 rounded-xl text-sm font-black transition-all ${
-              activeTab === "income"
-                ? "bg-white dark:bg-gray-700 text-emerald-600 shadow-lg"
-                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
+            className={`flex items-center px-8 py-3 rounded-xl text-sm font-black transition-all ${activeTab === "income" ? "bg-white dark:bg-gray-700 text-emerald-600 shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
           >
             <ArrowUpCircle className="w-4 h-4 mr-2" />
             Revenus
           </button>
           <button
             onClick={() => setActiveTab("expense")}
-            className={`flex items-center px-8 py-3 rounded-xl text-sm font-black transition-all ${
-              activeTab === "expense"
-                ? "bg-white dark:bg-gray-700 text-rose-600 shadow-lg"
-                : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
+            className={`flex items-center px-8 py-3 rounded-xl text-sm font-black transition-all ${activeTab === "expense" ? "bg-white dark:bg-gray-700 text-rose-600 shadow-lg" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
           >
             <ArrowDownCircle className="w-4 h-4 mr-2" />
             Dépenses
           </button>
         </div>
-
         <div className="relative flex-1 max-w-xl group">
           <input
             type="text"
@@ -345,7 +321,6 @@ export default function Finance() {
         </div>
       </div>
 
-      {/* Tableau de Données */}
       <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -366,14 +341,14 @@ export default function Finance() {
                     colSpan={6}
                     className="px-8 py-20 text-center font-bold text-gray-400 animate-pulse"
                   >
-                    Chargement des données...
+                    Chargement...
                   </td>
                 </tr>
               ) : txResponse?.data.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-8 py-20 text-center">
-                    <Receipt className="w-16 h-16 text-gray-100 dark:text-gray-700 mx-auto mb-4" />
-                    <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
+                    <Receipt className="w-16 h-16 text-gray-100 mx-auto mb-4" />
+                    <p className="text-gray-400 font-bold text-xs uppercase">
                       Aucun mouvement trouvé
                     </p>
                   </td>
@@ -401,34 +376,23 @@ export default function Finance() {
                       </div>
                     </td>
                     <td className="px-8 py-6">
-                      <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-xl text-[10px] font-black uppercase text-gray-600 dark:text-gray-300">
-                        {getPaymentIcon(tx.payment_method)}
-                        {tx.payment_method}
+                      <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-xl text-[10px] font-black uppercase text-gray-600">
+                        {getPaymentIcon(tx.payment_method)} {tx.payment_method}
                       </div>
                     </td>
                     <td className="px-8 py-6">
                       {tx.payment_method === "cheque" ? (
                         <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${
-                            tx.is_cashed
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                              : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                          }`}
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${tx.is_cashed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                         >
                           {tx.is_cashed ? "Encaissé" : "En cours"}
                         </span>
                       ) : (
-                        <span className="text-gray-200 dark:text-gray-700">
-                          —
-                        </span>
+                        <span className="text-gray-200">—</span>
                       )}
                     </td>
                     <td
-                      className={`px-8 py-6 text-lg text-right font-black ${
-                        activeTab === "income"
-                          ? "text-emerald-600"
-                          : "text-rose-600"
-                      }`}
+                      className={`px-8 py-6 text-lg text-right font-black ${activeTab === "income" ? "text-emerald-600" : "text-rose-600"}`}
                     >
                       {tx.amount.toLocaleString()}{" "}
                       <span className="text-[10px] opacity-50">MAD</span>
@@ -440,13 +404,13 @@ export default function Finance() {
                             setEditingTx(tx);
                             setIsModalOpen(true);
                           }}
-                          className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-2xl transition-all"
+                          className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-2xl transition-all"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setTxToDelete(tx.id)}
-                          className="p-3 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-2xl transition-all"
+                          className="p-3 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -467,7 +431,6 @@ export default function Finance() {
         </div>
       </div>
 
-      {/* Modal de Transaction */}
       <InternalModal
         isOpen={isModalOpen}
         onClose={() => {
@@ -514,7 +477,6 @@ export default function Finance() {
               />
             </div>
           </div>
-
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
               Libellé / Description
@@ -530,7 +492,6 @@ export default function Finance() {
               placeholder="Ex: Facture N°..."
             />
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="relative space-y-2" ref={dropdownRef}>
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
@@ -549,14 +510,13 @@ export default function Finance() {
                     setShowContactDropdown(true);
                   }}
                   onFocus={() => setShowContactDropdown(true)}
-                  placeholder={`Rechercher dans la base...`}
+                  placeholder={`Rechercher...`}
                   className="w-full pl-12 pr-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
                 />
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               </div>
-
               {showContactDropdown && contacts.length > 0 && (
-                <div className="absolute z-30 w-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 max-h-56 overflow-y-auto animate-in slide-in-from-top-2">
+                <div className="absolute z-30 w-full mt-2 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-100 max-h-56 overflow-y-auto animate-in slide-in-from-top-2">
                   {contacts.map((contact) => (
                     <button
                       key={contact.id}
@@ -569,13 +529,11 @@ export default function Finance() {
                         });
                         setShowContactDropdown(false);
                       }}
-                      className="w-full px-6 py-4 text-left text-sm font-black hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-50 dark:border-gray-700 last:border-0 transition-colors"
+                      className="w-full px-6 py-4 text-left text-sm font-black hover:bg-blue-50 border-b last:border-0 transition-colors"
                     >
                       {contact.name}
                       <span className="block text-[9px] text-gray-400 font-bold uppercase mt-0.5">
-                        {contact.ice ||
-                          contact.service_type ||
-                          "Enregistrement Base"}
+                        {contact.ice || contact.service_type || "Base"}
                       </span>
                     </button>
                   ))}
@@ -593,11 +551,10 @@ export default function Finance() {
                   setFormData({ ...formData, category: e.target.value })
                 }
                 className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
-                placeholder="Ex: Logistique, Vente..."
+                placeholder="Ex: Logistique..."
               />
             </div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
             <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
@@ -610,16 +567,16 @@ export default function Finance() {
                 }
                 className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-black"
               >
-                <option value="cash">Espèces (Physique)</option>
-                <option value="virement">Virement (Bancaire)</option>
-                <option value="cheque">Chèque (Bancaire)</option>
-                <option value="versement">Versement (Bancaire)</option>
+                <option value="cash">Espèces</option>
+                <option value="virement">Virement</option>
+                <option value="cheque">Chèque</option>
+                <option value="versement">Versement</option>
               </select>
             </div>
-            <div className="flex items-center gap-8 bg-gray-50 dark:bg-gray-700/30 p-4 rounded-2xl px-6 h-[60px]">
-              {formData.payment_method === "cheque" ||
-              formData.payment_method === "virement" ||
-              formData.payment_method === "versement" ? (
+            <div className="flex items-center gap-8 bg-gray-50 p-4 rounded-2xl px-6 h-[60px]">
+              {["cheque", "virement", "versement"].includes(
+                formData.payment_method,
+              ) && (
                 <label className="flex items-center cursor-pointer group">
                   <input
                     type="checkbox"
@@ -627,13 +584,13 @@ export default function Finance() {
                     onChange={(e) =>
                       setFormData({ ...formData, is_cashed: e.target.checked })
                     }
-                    className="w-5 h-5 rounded-lg text-emerald-600 focus:ring-emerald-500 mr-2 border-gray-300 transition-all"
+                    className="w-5 h-5 rounded-lg text-emerald-600 mr-2"
                   />
-                  <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-emerald-600 transition-colors">
-                    Encaissé / Confirmé
+                  <span className="text-[10px] font-black uppercase text-gray-500">
+                    Encaissé
                   </span>
                 </label>
-              ) : null}
+              )}
               <label className="flex items-center cursor-pointer group">
                 <input
                   type="checkbox"
@@ -641,133 +598,67 @@ export default function Finance() {
                   onChange={(e) =>
                     setFormData({ ...formData, in_bank: e.target.checked })
                   }
-                  className="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500 mr-2 border-gray-300 transition-all"
+                  className="w-5 h-5 rounded-lg text-blue-600 mr-2"
                 />
-                <span className="text-[10px] font-black uppercase text-gray-500 group-hover:text-blue-600 transition-colors">
+                <span className="text-[10px] font-black uppercase text-gray-500">
                   En banque
                 </span>
               </label>
             </div>
           </div>
-
-          {/* Conditional Inputs for Cheque and Virement */}
           {formData.payment_method === "cheque" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                  Numéro du Chèque
-                </label>
-                <input
-                  type="text"
-                  value={formData.cheque_number}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cheque_number: e.target.value })
-                  }
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                  Banque Émettrice
-                </label>
-                <input
-                  type="text"
-                  value={formData.bank_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bank_name: e.target.value })
-                  }
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
-                />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <input
+                type="text"
+                value={formData.cheque_number}
+                onChange={(e) =>
+                  setFormData({ ...formData, cheque_number: e.target.value })
+                }
+                placeholder="N° Chèque"
+                className="input font-bold"
+              />
+              <input
+                type="text"
+                value={formData.bank_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, bank_name: e.target.value })
+                }
+                placeholder="Banque"
+                className="input font-bold"
+              />
             </div>
           )}
-
-          {formData.payment_method === "virement" && (
-            <div className="space-y-6 animate-in slide-in-from-top-2">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                  Référence Virement / N°
-                </label>
-                <input
-                  type="text"
-                  value={formData.virement_number}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      virement_number: e.target.value,
-                    })
-                  }
-                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                    Banque Source (From)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.bank_from}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bank_from: e.target.value })
-                    }
-                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                    Banque Destination (To)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.bank_to}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bank_to: e.target.value })
-                    }
-                    className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="flex justify-end gap-4 pt-6">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="px-8 py-4 rounded-2xl font-black text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-sm uppercase tracking-widest"
+              className="px-8 py-4 rounded-2xl font-black text-gray-500 hover:bg-gray-100 text-sm uppercase"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className={`px-10 py-4 rounded-2xl font-black text-white shadow-2xl transition-all active:scale-95 ${
-                activeTab === "income"
-                  ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20"
-                  : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"
-              }`}
+              className={`px-10 py-4 rounded-2xl font-black text-white shadow-2xl transition-all active:scale-95 ${activeTab === "income" ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20" : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"}`}
             >
               {isPending
                 ? "Mise à jour..."
                 : editingTx
-                ? "Mettre à jour le Grand Livre"
-                : "Enregistrer le Mouvement"}
+                  ? "Mettre à jour"
+                  : "Enregistrer"}
             </button>
           </div>
         </form>
       </InternalModal>
 
-      {/* Confirmation de Suppression */}
       <InternalModal
         isOpen={!!txToDelete}
         onClose={() => setTxToDelete(null)}
         title="Supprimer le Mouvement"
       >
         <div className="space-y-6">
-          <p className="text-gray-600 dark:text-gray-300 font-bold leading-relaxed">
-            Cette action supprimera définitivement cette entrée de votre grand
-            livre financier et des calculs de trésorerie.
+          <p className="text-gray-600 dark:text-gray-300 font-bold">
+            Cette action supprimera définitivement cette entrée.
           </p>
           <div className="flex justify-end gap-3">
             <button
@@ -778,9 +669,9 @@ export default function Finance() {
             </button>
             <button
               onClick={() => deleteTx(txToDelete)}
-              className="px-6 py-3 bg-rose-600 text-white rounded-xl font-black shadow-lg shadow-rose-500/20 hover:bg-rose-700"
+              className="px-6 py-3 bg-rose-600 text-white rounded-xl font-black shadow-lg"
             >
-              Confirmer la Suppression
+              Confirmer
             </button>
           </div>
         </div>
