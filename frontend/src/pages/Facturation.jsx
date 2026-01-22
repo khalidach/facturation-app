@@ -114,20 +114,18 @@ export default function Facturation() {
     }
   };
 
-  // --- NOUVEAU MOTEUR DE GÉNÉRATION PDF ---
   useEffect(() => {
     if (factureToPreview) {
       const generatePdf = async () => {
         const input = document.getElementById(
-          `pdf-preview-${factureToPreview.id}`
+          `pdf-preview-${factureToPreview.id}`,
         );
         if (input) {
           const toastId = toast.loading(
             "Préparation du PDF haute définition...",
-            { id: "pdf-toast" }
+            { id: "pdf-toast" },
           );
           try {
-            // Utilise l'API native d'Electron pour une qualité parfaite
             const result = await window.electronAPI.generateNativePDF({
               htmlContent: input.innerHTML,
               fileName: `${factureToPreview.type}_${factureToPreview.facture_number}.pdf`,
@@ -150,7 +148,6 @@ export default function Facturation() {
           }
         }
       };
-      // Petit délai pour laisser React injecter le HTML dans le DOM caché
       const timer = setTimeout(generatePdf, 150);
       return () => clearTimeout(timer);
     }
@@ -183,8 +180,9 @@ export default function Facturation() {
           </button>
         </div>
 
+        {/* Barre de recherche étendue */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="relative w-full md:max-w-md">
+          <div className="relative flex-1 w-full">
             <input
               type="text"
               placeholder="Chercher par N°, Client ou Total..."
@@ -210,10 +208,10 @@ export default function Facturation() {
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
                 {[
+                  "Date",
                   "N°",
                   "Type",
                   "Client",
-                  "Date",
                   "Total",
                   "Paiement",
                   "Actions",
@@ -250,13 +248,16 @@ export default function Facturation() {
                 factures.map((facture) => {
                   const status = getPaymentStatus(
                     facture.total,
-                    facture.totalPaid
+                    facture.totalPaid,
                   );
                   return (
                     <tr
                       key={facture.id}
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors"
                     >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-400">
+                        {new Date(facture.date).toLocaleDateString("fr-FR")}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-gray-100">
                         {facture.facture_number}
                       </td>
@@ -274,9 +275,7 @@ export default function Facturation() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700 dark:text-gray-300">
                         {facture.clientName}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-400">
-                        {new Date(facture.date).toLocaleDateString("fr-FR")}
-                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-900 dark:text-white">
                         {facture.total.toLocaleString()}{" "}
                         <span className="text-[10px] opacity-40">MAD</span>
@@ -375,14 +374,13 @@ export default function Facturation() {
         />
       </div>
 
-      {/* Rendu caché pour la capture PDF Native */}
       {factureToPreview && (
         <div
           style={{
             position: "absolute",
             left: "-9999px",
             top: 0,
-            width: "210mm", // Largeur standard A4
+            width: "210mm",
             backgroundColor: "white",
           }}
         >
