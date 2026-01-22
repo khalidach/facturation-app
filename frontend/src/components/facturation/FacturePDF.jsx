@@ -122,18 +122,6 @@ export default function FacturePDF({ facture, themeStyles }) {
               >
                 {facture.type === "devis" ? "Devis" : "Facture"}
               </h2>
-              {settings?.ice && (
-                <p
-                  style={{
-                    fontSize: "10px",
-                    color: "#6b7280",
-                    marginTop: "4px",
-                    ...getStyle(styles, "header.ice"),
-                  }}
-                >
-                  ICE : {settings.ice}
-                </p>
-              )}
             </div>
           </div>
         </header>
@@ -306,7 +294,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                     >
                       {Number(item.fraisServiceUnitaire).toLocaleString(
                         undefined,
-                        { minimumFractionDigits: 2 }
+                        { minimumFractionDigits: 2 },
                       )}
                     </td>
                   )}
@@ -347,7 +335,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                     <span>
                       {Number(facture.prixTotalHorsFrais).toLocaleString(
                         undefined,
-                        { minimumFractionDigits: 2 }
+                        { minimumFractionDigits: 2 },
                       )}{" "}
                       MAD
                     </span>
@@ -360,7 +348,7 @@ export default function FacturePDF({ facture, themeStyles }) {
                     <span>
                       {Number(facture.totalFraisServiceHT).toLocaleString(
                         undefined,
-                        { minimumFractionDigits: 2 }
+                        { minimumFractionDigits: 2 },
                       )}{" "}
                       MAD
                     </span>

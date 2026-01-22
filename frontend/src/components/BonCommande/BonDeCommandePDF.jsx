@@ -1,5 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { numberToWordsFr } from "../../services/numberToWords.js";
 
 // Fonction d'aide pour extraire les styles du thème personnalisé
 const getStyle = (styles, path) => {
@@ -27,6 +28,7 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
   const bodyStyles = styles.body || {};
   const footerStyles = styles.footer || {};
 
+  const totalInWords = numberToWordsFr(order.total);
   const parsedItems =
     typeof order.items === "string"
       ? JSON.parse(order.items)
@@ -293,7 +295,7 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
             </tbody>
           </table>
 
-          {/* TOTALS */}
+          {/* TOTALS - Largeur augmentée pour éviter le wrapping */}
           <div
             style={{
               marginTop: "30px",
@@ -304,7 +306,7 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
           >
             <div
               style={{
-                width: "250px",
+                width: "350px",
                 padding: "15px",
                 backgroundColor: "#f9fafb",
                 borderRadius: "8px",
@@ -329,6 +331,33 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* TOTAL EN LETTRES */}
+          <div
+            style={{
+              marginTop: "40px",
+              fontStyle: "italic",
+              ...getStyle(styles, "body.totalInWords.container"),
+            }}
+          >
+            <p
+              style={{
+                fontSize: "11px",
+                ...getStyle(styles, "body.totalInWords.label"),
+              }}
+            >
+              Arrêté la présente facture à la somme de :
+            </p>
+            <p
+              style={{
+                fontWeight: "bold",
+                textTransform: "capitalize",
+                ...getStyle(styles, "body.totalInWords.value"),
+              }}
+            >
+              {totalInWords}
+            </p>
           </div>
 
           {order.notes && (
@@ -358,7 +387,7 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
         </main>
       </div>
 
-      {/* FOOTER */}
+      {/* FOOTER SYNCHRONISÉ AVEC FACTURATION */}
       <footer
         style={{
           borderTop: "1px solid #eee",
@@ -371,11 +400,17 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
           style={{ fontSize: "9px", color: "#6b7280", textAlign: "center" }}
         >
           {[
-            `Sté. ${settings?.agencyName || ""}`,
-            settings?.address && `Adresse : ${settings.address}`,
+            `Sté. ${settings?.agencyName || ""} ${settings?.typeSociete || ""}`,
+            settings?.capital && `Capital : ${settings.capital} Dhs`,
+            settings?.address && `Siège : ${settings.address}`,
             settings?.phone && `Tél : ${settings.phone}`,
+            settings?.email && `Email : ${settings.email}`,
             settings?.ice && `ICE : ${settings.ice}`,
             settings?.if && `IF : ${settings.if}`,
+            settings?.rc && `RC : ${settings.rc}`,
+            settings?.bankName &&
+              settings?.rib &&
+              `RIB (${settings.bankName}) : ${settings.rib}`,
           ]
             .filter(Boolean)
             .map((item, idx) => (
