@@ -3,10 +3,60 @@ const path = require("path");
 const fs = require("fs");
 const db = require("./backend/database");
 const { machineIdSync } = require("node-machine-id");
-const sanitizeHtml = require("sanitize-html"); //
+const sanitizeHtml = require("sanitize-html");
+const { z } = require("zod"); // Added Zod for validation
 
 const persistentMachineId = machineIdSync({ original: true });
 const isDev = process.env.npm_lifecycle_event === "dev:electron";
+
+// --- 1. VALIDATION SCHEMAS ---
+
+const PaginationSchema = z.object({
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(100).default(10),
+  search: z.string().optional().default(""),
+  type: z.enum(["income", "expense"]).optional().default("income"),
+  sortBy: z.enum(["newest", "oldest"]).optional().default("newest"),
+});
+
+const TransactionSchema = z.object({
+  amount: z.number().positive(),
+  description: z.string().nullable().optional(),
+  category: z.string().min(1).default("General"),
+  contact_person: z.string().nullable().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  payment_method: z.enum(["cash", "cheque", "virement"]).default("cash"),
+  is_cashed: z.boolean().default(true),
+  in_bank: z.boolean().default(false),
+  type: z.enum(["income", "expense"]),
+  facture_id: z.number().nullable().optional(),
+  bon_de_commande_id: z.number().nullable().optional(),
+  cheque_number: z.string().nullable().optional(),
+  bank_name: z.string().nullable().optional(),
+  transaction_ref: z.string().nullable().optional(),
+  bank_sender: z.string().nullable().optional(),
+  bank_recipient: z.string().nullable().optional(),
+  account_recipient: z.string().nullable().optional(),
+  name_recipient: z.string().nullable().optional(),
+  account_sender: z.string().nullable().optional(),
+  name_sender: z.string().nullable().optional(),
+});
+
+const FactureSchema = z.object({
+  clientName: z.string().min(1),
+  clientAddress: z.string().nullable().optional(),
+  clientICE: z.string().nullable().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  items: z.array(z.any()),
+  type: z.enum(["facture", "devis"]),
+  showMargin: z.boolean().default(true),
+  prixTotalHorsFrais: z.number(),
+  totalFraisServiceHT: z.number(),
+  tva: z.number(),
+  total: z.number(),
+  notes: z.string().nullable().optional(),
+  facture_number: z.string().nullable().optional(),
+});
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -28,7 +78,7 @@ function createWindow() {
   mainWindow.loadURL(startUrl);
 }
 
-// --- IPC HANDLERS ---
+// --- 2. IPC HANDLERS ---
 
 // --- 1. DASHBOARD & ANALYTICS ---
 ipcMain.handle("db:getDashboardStats", (event, args) => {
@@ -44,10 +94,8 @@ ipcMain.handle("db:getDashboardStats", (event, args) => {
         "SELECT SUM(amount) as total FROM expenses WHERE date BETWEEN ? AND ? AND is_cashed = 1",
       )
       .get(startDate, endDate);
-
     const totalIncome = incomeStats?.total || 0;
     const totalExpense = expenseStats?.total || 0;
-
     const rawIncome = db
       .prepare(
         "SELECT date, SUM(amount) as val FROM incomes WHERE date BETWEEN ? AND ? AND is_cashed = 1 GROUP BY date",
@@ -58,23 +106,18 @@ ipcMain.handle("db:getDashboardStats", (event, args) => {
         "SELECT date, SUM(amount) as val FROM expenses WHERE date BETWEEN ? AND ? AND is_cashed = 1 GROUP BY date",
       )
       .all(startDate, endDate);
-
     const dateMap = {};
     rawIncome.forEach((d) => {
       dateMap[d.date] = { date: d.date, income: d.val || 0, expense: 0 };
     });
     rawExpense.forEach((d) => {
-      if (!dateMap[d.date]) {
+      if (!dateMap[d.date])
         dateMap[d.date] = { date: d.date, income: 0, expense: d.val || 0 };
-      } else {
-        dateMap[d.date].expense = d.val || 0;
-      }
+      else dateMap[d.date].expense = d.val || 0;
     });
-
     const chartData = Object.values(dateMap).sort((a, b) =>
       a.date.localeCompare(b.date),
     );
-
     return {
       summary: {
         income: totalIncome,
@@ -90,47 +133,55 @@ ipcMain.handle("db:getDashboardStats", (event, args) => {
 });
 
 // --- 2. FINANCE (INCOMES & EXPENSES) ---
-ipcMain.handle(
-  "db:getTransactions",
-  (event, { page = 1, limit = 10, search = "", type = "income" }) => {
-    const tableName = type === "expense" ? "expenses" : "incomes";
-    const offset = (page - 1) * limit;
-    let where = "WHERE 1=1";
-    const params = [];
+ipcMain.handle("db:getTransactions", (event, args) => {
+  const validation = PaginationSchema.safeParse(args);
+  if (!validation.success)
+    throw new Error(`Invalid arguments: ${validation.error.message}`);
 
-    if (search) {
-      where +=
-        " AND (description LIKE ? OR category LIKE ? OR contact_person LIKE ? OR cheque_number LIKE ? OR transaction_ref LIKE ?)";
-      const t = `%${search}%`;
-      params.push(t, t, t, t, t);
-    }
+  const { page, limit, search, type } = validation.data;
+  const tableName = type === "expense" ? "expenses" : "incomes";
+  const offset = (page - 1) * limit;
+  let where = "WHERE 1=1";
+  const params = [];
 
-    try {
-      const count = db
-        .prepare(`SELECT COUNT(*) as total FROM ${tableName} ${where}`)
-        .get(...params);
-      const data = db
-        .prepare(
-          `SELECT * FROM ${tableName} ${where} ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`,
-        )
-        .all(...params, limit, offset);
+  if (search) {
+    where +=
+      " AND (description LIKE ? OR category LIKE ? OR contact_person LIKE ? OR cheque_number LIKE ? OR transaction_ref LIKE ?)";
+    const t = `%${search}%`;
+    params.push(t, t, t, t, t);
+  }
 
-      return {
-        data,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil((count?.total || 0) / limit),
-          totalCount: count?.total || 0,
-        },
-      };
-    } catch (error) {
-      console.error(`Error getting transactions from ${tableName}:`, error);
-      throw error;
-    }
-  },
-);
+  try {
+    const count = db
+      .prepare(`SELECT COUNT(*) as total FROM ${tableName} ${where}`)
+      .get(...params);
+    const data = db
+      .prepare(
+        `SELECT * FROM ${tableName} ${where} ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`,
+      )
+      .all(...params, limit, offset);
+    return {
+      data,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil((count?.total || 0) / limit),
+        totalCount: count?.total || 0,
+      },
+    };
+  } catch (error) {
+    console.error(`Error getting transactions:`, error);
+    throw error;
+  }
+});
 
-ipcMain.handle("db:createTransaction", (event, data) => {
+ipcMain.handle("db:createTransaction", (event, rawData) => {
+  const validation = TransactionSchema.safeParse(rawData);
+  if (!validation.success)
+    throw new Error(
+      `Transaction Validation Failed: ${JSON.stringify(validation.error.flatten().fieldErrors)}`,
+    );
+
+  const data = validation.data;
   const tableName = data.type === "expense" ? "expenses" : "incomes";
   try {
     const columns = [
@@ -158,7 +209,7 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       data.category,
       data.contact_person,
       data.date,
-      data.payment_method || "cash",
+      data.payment_method,
       data.is_cashed ? 1 : 0,
       data.in_bank ? 1 : 0,
       data.cheque_number || null,
@@ -176,7 +227,6 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       columns.push("facture_id");
       values.push(data.facture_id || null);
     }
-
     if (tableName === "expenses") {
       columns.push("bon_de_commande_id");
       values.push(data.bon_de_commande_id || null);
@@ -187,7 +237,6 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       `INSERT INTO ${tableName} (${columns.join(", ")}) VALUES (${placeholders})`,
     );
     const info = stmt.run(...values);
-
     return { id: info.lastInsertRowid, ...data };
   } catch (error) {
     console.error("Database Error createTransaction:", error);
@@ -195,7 +244,12 @@ ipcMain.handle("db:createTransaction", (event, data) => {
   }
 });
 
-ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
+ipcMain.handle("db:updateTransaction", (event, { id, data: rawData }) => {
+  const validation = TransactionSchema.safeParse(rawData);
+  if (!validation.success)
+    throw new Error(`Update Validation Failed: ${validation.error.message}`);
+
+  const data = validation.data;
   const tableName = data.type === "expense" ? "expenses" : "incomes";
   try {
     const columns = [
@@ -236,12 +290,10 @@ ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
       data.account_sender || null,
       data.name_sender || null,
     ];
-
     if (tableName === "incomes") {
       columns.push("facture_id=?");
       values.push(data.facture_id || null);
     }
-
     if (tableName === "expenses") {
       columns.push("bon_de_commande_id=?");
       values.push(data.bon_de_commande_id || null);
@@ -251,7 +303,6 @@ ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
       ...values,
       id,
     );
-
     return { id, ...data };
   } catch (error) {
     console.error("Database Error updateTransaction:", error);
@@ -290,28 +341,24 @@ ipcMain.handle("db:getTreasuryStats", () => {
           "SELECT SUM(amount) as total FROM incomes WHERE in_bank = 1 AND is_cashed = 1",
         )
         .get().total || 0;
-
     const bankExpense =
       db
         .prepare(
           "SELECT SUM(amount) as total FROM expenses WHERE in_bank = 1 AND is_cashed = 1",
         )
         .get().total || 0;
-
     const cashIncome =
       db
         .prepare(
           "SELECT SUM(amount) as total FROM incomes WHERE in_bank = 0 AND is_cashed = 1",
         )
         .get().total || 0;
-
     const cashExpense =
       db
         .prepare(
           "SELECT SUM(amount) as total FROM expenses WHERE in_bank = 0 AND is_cashed = 1",
         )
         .get().total || 0;
-
     const bankTransfersIn =
       db
         .prepare(
@@ -336,14 +383,12 @@ ipcMain.handle("db:getTreasuryStats", () => {
           "SELECT SUM(amount) as total FROM transfers WHERE from_account = 'caisse'",
         )
         .get().total || 0;
-
     const pendingChecks =
       db
         .prepare(
           "SELECT SUM(amount) as total FROM incomes WHERE payment_method = 'cheque' AND is_cashed = 0",
         )
         .get().total || 0;
-
     return {
       banque: bankIncome - bankExpense + bankTransfersIn - bankTransfersOut,
       caisse: cashIncome - cashExpense + cashTransfersIn - cashTransfersOut,
@@ -375,9 +420,13 @@ ipcMain.handle("db:createTransfer", (event, data) => {
   }
 });
 
-ipcMain.handle("db:getTransfers", (event, { page = 1, limit = 10 }) => {
+ipcMain.handle("db:getTransfers", (event, args) => {
+  const validation = PaginationSchema.safeParse(args);
+  if (!validation.success)
+    throw new Error(`Invalid arguments: ${validation.error.message}`);
+  const { page, limit } = validation.data;
+  const offset = (page - 1) * limit;
   try {
-    const offset = (page - 1) * limit;
     const count = db
       .prepare("SELECT COUNT(*) as total FROM transfers")
       .get().total;
@@ -412,7 +461,10 @@ ipcMain.handle("db:deleteTransfer", (event, id) => {
 
 // --- 4. FACTURATION (INVOICES & QUOTES) ---
 ipcMain.handle("db:getFactures", (event, args) => {
-  const { page = 1, limit = 10, search = "", sortBy = "newest" } = args;
+  const validation = PaginationSchema.safeParse(args);
+  if (!validation.success)
+    throw new Error(`Invalid arguments: ${validation.error.message}`);
+  const { page, limit, search, sortBy } = validation.data;
   const offset = (page - 1) * limit;
   let whereClause = "";
   const params = [];
@@ -428,15 +480,11 @@ ipcMain.handle("db:getFactures", (event, args) => {
     const count = db
       .prepare(`SELECT COUNT(*) as totalCount FROM factures ${whereClause}`)
       .get(...params);
-
     const data = db
       .prepare(
-        `SELECT *, 
-        (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE facture_id = factures.id) as totalPaid 
-        FROM factures ${whereClause} ${orderBy} LIMIT ? OFFSET ?`,
+        `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE facture_id = factures.id) as totalPaid FROM factures ${whereClause} ${orderBy} LIMIT ? OFFSET ?`,
       )
       .all(...params, limit, offset);
-
     return {
       data,
       pagination: {
@@ -451,26 +499,18 @@ ipcMain.handle("db:getFactures", (event, args) => {
   }
 });
 
-ipcMain.handle("db:createFacture", (event, data) => {
-  const {
-    clientName,
-    clientAddress,
-    clientICE,
-    date,
-    items,
-    type,
-    showMargin,
-    prixTotalHorsFrais,
-    totalFraisServiceHT,
-    tva,
-    total,
-    notes,
-    facture_number: manualNum,
-  } = data;
-  let facture_number = manualNum;
+ipcMain.handle("db:createFacture", (event, rawData) => {
+  const validation = FactureSchema.safeParse(rawData);
+  if (!validation.success)
+    throw new Error(
+      `Facture Validation Failed: ${JSON.stringify(validation.error.flatten().fieldErrors)}`,
+    );
+
+  const data = validation.data;
+  let { facture_number } = data;
   let newNum = null;
-  if (!manualNum || manualNum.trim() === "") {
-    const year = new Date(date).getFullYear().toString();
+  if (!facture_number || facture_number.trim() === "") {
+    const year = new Date(data.date).getFullYear().toString();
     const last = db
       .prepare(
         "SELECT MAX(CAST(SUBSTR(facture_number, 1, INSTR(facture_number, '/') - 1) AS INTEGER)) as maxNum FROM factures WHERE STRFTIME('%Y', date) = ?",
@@ -486,18 +526,18 @@ ipcMain.handle("db:createFacture", (event, data) => {
     const info = stmt.run(
       facture_number,
       newNum,
-      clientName,
-      clientAddress,
-      clientICE,
-      date,
-      JSON.stringify(items),
-      type,
-      showMargin ? 1 : 0,
-      prixTotalHorsFrais,
-      totalFraisServiceHT,
-      tva,
-      total,
-      notes,
+      data.clientName,
+      data.clientAddress,
+      data.clientICE,
+      data.date,
+      JSON.stringify(data.items),
+      data.type,
+      data.showMargin ? 1 : 0,
+      data.prixTotalHorsFrais,
+      data.totalFraisServiceHT,
+      data.tva,
+      data.total,
+      data.notes,
     );
     return { id: info.lastInsertRowid, ...data, facture_number };
   } catch (error) {
@@ -506,7 +546,11 @@ ipcMain.handle("db:createFacture", (event, data) => {
   }
 });
 
-ipcMain.handle("db:updateFacture", (event, { id, data }) => {
+ipcMain.handle("db:updateFacture", (event, { id, data: rawData }) => {
+  const validation = FactureSchema.safeParse(rawData);
+  if (!validation.success)
+    throw new Error(`Facture Update Failed: ${validation.error.message}`);
+  const data = validation.data;
   try {
     db.prepare(
       "UPDATE factures SET clientName=?, clientAddress=?, clientICE=?, date=?, items=?, type=?, showMargin=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?",
@@ -544,7 +588,10 @@ ipcMain.handle("db:deleteFacture", (event, id) => {
 
 // --- 5. BON DE COMMANDE (PURCHASE ORDERS) ---
 ipcMain.handle("db:getBonDeCommandes", (event, args) => {
-  const { page = 1, limit = 10, search = "", sortBy = "newest" } = args;
+  const validation = PaginationSchema.safeParse(args);
+  if (!validation.success)
+    throw new Error(`Invalid arguments: ${validation.error.message}`);
+  const { page, limit, search, sortBy } = validation.data;
   const offset = (page - 1) * limit;
   let where = "";
   const params = [];
@@ -562,11 +609,7 @@ ipcMain.handle("db:getBonDeCommandes", (event, args) => {
       .get(...params);
     const data = db
       .prepare(
-        `
-      SELECT *, 
-      (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid 
-      FROM bon_de_commande ${where} ${orderBy} LIMIT ? OFFSET ?
-    `,
+        `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid FROM bon_de_commande ${where} ${orderBy} LIMIT ? OFFSET ?`,
       )
       .all(...params, limit, offset);
     return {
@@ -597,7 +640,6 @@ ipcMain.handle("db:createBonDeCommande", (event, data) => {
     notes,
     order_number: manualNum,
   } = data;
-
   let order_number = manualNum;
   if (!manualNum || manualNum.trim() === "") {
     const year = new Date(date).getFullYear().toString();
@@ -607,12 +649,10 @@ ipcMain.handle("db:createBonDeCommande", (event, data) => {
     const nextNum = (last.maxId || 0) + 1;
     order_number = `BC-${String(nextNum).padStart(3, "0")}/${year}`;
   }
-
   try {
-    const stmt = db.prepare(`
-      INSERT INTO bon_de_commande (order_number, supplierName, supplierAddress, supplierICE, date, items, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const stmt = db.prepare(
+      `INSERT INTO bon_de_commande (order_number, supplierName, supplierAddress, supplierICE, date, items, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
     const info = stmt.run(
       order_number,
       supplierName,
@@ -636,9 +676,7 @@ ipcMain.handle("db:createBonDeCommande", (event, data) => {
 ipcMain.handle("db:updateBonDeCommande", (event, { id, data }) => {
   try {
     db.prepare(
-      `
-      UPDATE bon_de_commande SET supplierName=?, supplierAddress=?, supplierICE=?, date=?, items=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?
-    `,
+      `UPDATE bon_de_commande SET supplierName=?, supplierAddress=?, supplierICE=?, date=?, items=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?`,
     ).run(
       data.supplierName,
       data.supplierAddress,
@@ -686,9 +724,7 @@ ipcMain.handle("db:getBonDeCommandeById", (event, id) => {
   try {
     return db
       .prepare(
-        `SELECT *, 
-        (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid 
-        FROM bon_de_commande WHERE id = ?`,
+        `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid FROM bon_de_commande WHERE id = ?`,
       )
       .get(id);
   } catch (error) {
@@ -868,9 +904,8 @@ ipcMain.handle("license:verify", async (event, { licenseCode }) => {
   }
 });
 
-// --- 9. NATIVE PDF GENERATION WITH HTML SANITIZATION ---
+// --- 9. NATIVE PDF GENERATION ---
 ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
-  // Sanitize input HTML for security while allowing styles for PDF layout
   const cleanHtml = sanitizeHtml(htmlContent, {
     allowedTags: sanitizeHtml.defaults.allowedTags.concat([
       "img",
@@ -922,49 +957,25 @@ ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
 
   const printWindow = new BrowserWindow({
     show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true, //
-    },
+    webPreferences: { nodeIntegration: false, contextIsolation: true },
   });
-
-  const styledHtml = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          @page { size: A4; margin: 0; }
-          body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; }
-          * { box-sizing: border-box; }
-          @media print {
-            body { background-color: white !important; }
-            .no-print { display: none !important; }
-          }
-        </style>
-      </head>
-      <body>${cleanHtml}</body>
-    </html>
-  `;
+  const styledHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page { size: A4; margin: 0; } body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; } * { box-sizing: border-box; } @media print { body { background-color: white !important; } .no-print { display: none !important; } }</style></head><body>${cleanHtml}</body></html>`;
 
   try {
     await printWindow.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`,
     );
-
     const pdfBuffer = await printWindow.webContents.printToPDF({
       margins: { marginType: "none" },
       pageSize: "A4",
       printBackground: true,
       landscape: false,
     });
-
     const { filePath } = await dialog.showSaveDialog({
       title: "Enregistrer le document PDF",
       defaultPath: path.join(app.getPath("downloads"), fileName),
       filters: [{ name: "Adobe PDF", extensions: ["pdf"] }],
     });
-
     if (filePath) {
       fs.writeFileSync(filePath, pdfBuffer);
       return { success: true, filePath };
@@ -980,11 +991,9 @@ ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
 
 // --- APP LIFECYCLE ---
 app.whenReady().then(createWindow);
-
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
-
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
