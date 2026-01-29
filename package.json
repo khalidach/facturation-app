@@ -17,7 +17,8 @@
   "license": "ISC",
   "dependencies": {
     "better-sqlite3": "^9.4.3",
-    "node-machine-id": "^1.1.12"
+    "node-machine-id": "^1.1.12",
+    "sanitize-html": "^2.17.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

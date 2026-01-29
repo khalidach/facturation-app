@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const db = require("./backend/database");
 const { machineIdSync } = require("node-machine-id");
+const sanitizeHtml = require("sanitize-html"); //
 
 const persistentMachineId = machineIdSync({ original: true });
 const isDev = process.env.npm_lifecycle_event === "dev:electron";
@@ -867,12 +868,63 @@ ipcMain.handle("license:verify", async (event, { licenseCode }) => {
   }
 });
 
-// --- 9. NATIVE PDF GENERATION ---
+// --- 9. NATIVE PDF GENERATION WITH HTML SANITIZATION ---
 ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
+  // Sanitize input HTML for security while allowing styles for PDF layout
+  const cleanHtml = sanitizeHtml(htmlContent, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      "img",
+      "style",
+      "div",
+      "span",
+      "table",
+      "thead",
+      "tbody",
+      "tr",
+      "th",
+      "td",
+      "br",
+      "hr",
+      "section",
+      "header",
+      "footer",
+    ]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      "*": ["style", "class", "id"],
+    },
+    allowedStyles: {
+      "*": {
+        color: [/^#(0x)?[0-9a-f]+$/i, /^rgb\(/, /^rgba\(/, /^[a-z]+$/],
+        "background-color": [
+          /^#(0x)?[0-9a-f]+$/i,
+          /^rgb\(/,
+          /^rgba\(/,
+          /^[a-z]+$/,
+        ],
+        "text-align": [/^left$/, /^right$/, /^center$/, /^justify$/],
+        "font-size": [/^\d+(?:px|em|pt|rem|%)$/],
+        "font-weight": [/^\d+$/, /^bold$/, /^normal$/],
+        margin: [/^.*$/],
+        padding: [/^.*$/],
+        border: [/^.*$/],
+        width: [/^.*$/],
+        height: [/^.*$/],
+        display: [/^.*$/],
+        flex: [/^.*$/],
+        "flex-direction": [/^.*$/],
+        "justify-content": [/^.*$/],
+        "align-items": [/^.*$/],
+        gap: [/^.*$/],
+      },
+    },
+  });
+
   const printWindow = new BrowserWindow({
     show: false,
     webPreferences: {
       nodeIntegration: false,
+      contextIsolation: true, //
     },
   });
 
@@ -891,7 +943,7 @@ ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
           }
         </style>
       </head>
-      <body>${htmlContent}</body>
+      <body>${cleanHtml}</body>
     </html>
   `;
 
