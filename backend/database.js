@@ -20,7 +20,7 @@ try {
 
 const db = new sqlite(dbPath);
 
-// Base Tables
+// Execute Core Table Creation
 const createFacturesTable = `
 CREATE TABLE IF NOT EXISTS factures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +60,13 @@ CREATE TABLE IF NOT EXISTS incomes (
     virement_number TEXT,
     bank_from TEXT,
     bank_to TEXT,
+    transaction_ref TEXT,
+    bank_sender TEXT,
+    bank_recipient TEXT,
+    account_recipient TEXT,
+    name_recipient TEXT,
+    account_sender TEXT,
+    name_sender TEXT,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `;
@@ -81,6 +88,13 @@ CREATE TABLE IF NOT EXISTS expenses (
     virement_number TEXT,
     bank_from TEXT,
     bank_to TEXT,
+    transaction_ref TEXT,
+    bank_sender TEXT,
+    bank_recipient TEXT,
+    account_recipient TEXT,
+    name_recipient TEXT,
+    account_sender TEXT,
+    name_sender TEXT,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 `;
@@ -97,7 +111,6 @@ CREATE TABLE IF NOT EXISTS transfers (
 );
 `;
 
-// Requirement: New table for Purchase Orders (Bon de Commande)
 const createBonDeCommandeTable = `
 CREATE TABLE IF NOT EXISTS bon_de_commande (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -122,7 +135,6 @@ const createThemeTable = `CREATE TABLE IF NOT EXISTS theme (id INTEGER PRIMARY K
 const createClientsTable = `CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, address TEXT, ice TEXT, email TEXT, phone TEXT, notes TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
 const createSuppliersTable = `CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, service_type TEXT, contact_person TEXT, email TEXT, phone TEXT, notes TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
 
-// Execute Core Table Creation
 db.exec(createFacturesTable);
 db.exec(createIncomesTable);
 db.exec(createExpensesTable);
@@ -134,7 +146,7 @@ db.exec(createClientsTable);
 db.exec(createSuppliersTable);
 
 /**
- * SELF-HEALING: Check and add missing columns on every startup
+ * SELF-HEALING: Add missing columns for detailed bank tracking
  */
 function ensureColumns() {
   const financeTables = ["incomes", "expenses"];
@@ -144,6 +156,13 @@ function ensureColumns() {
     { name: "virement_number", type: "TEXT" },
     { name: "bank_from", type: "TEXT" },
     { name: "bank_to", type: "TEXT" },
+    { name: "transaction_ref", type: "TEXT" },
+    { name: "bank_sender", type: "TEXT" },
+    { name: "bank_recipient", type: "TEXT" },
+    { name: "account_recipient", type: "TEXT" },
+    { name: "name_recipient", type: "TEXT" },
+    { name: "account_sender", type: "TEXT" },
+    { name: "name_sender", type: "TEXT" },
   ];
 
   financeTables.forEach((table) => {
@@ -151,9 +170,15 @@ function ensureColumns() {
       const columns = db.prepare(`PRAGMA table_info(${table})`).all();
       const columnNames = columns.map((c) => c.name);
 
+      newCols.forEach((col) => {
+        if (!columnNames.includes(col.name)) {
+          db.exec(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.type}`);
+        }
+      });
+
       if (!columnNames.includes("payment_method")) {
         db.exec(
-          `ALTER TABLE ${table} ADD COLUMN payment_method TEXT DEFAULT 'cash'`
+          `ALTER TABLE ${table} ADD COLUMN payment_method TEXT DEFAULT 'cash'`,
         );
       }
       if (!columnNames.includes("is_cashed")) {
@@ -162,57 +187,30 @@ function ensureColumns() {
       if (!columnNames.includes("in_bank")) {
         db.exec(`ALTER TABLE ${table} ADD COLUMN in_bank INTEGER DEFAULT 0`);
       }
-
-      // Link incomes to factures
       if (table === "incomes" && !columnNames.includes("facture_id")) {
         db.exec(`ALTER TABLE incomes ADD COLUMN facture_id INTEGER`);
       }
-
-      // Link expenses to bon_de_commande
       if (table === "expenses" && !columnNames.includes("bon_de_commande_id")) {
         db.exec(`ALTER TABLE expenses ADD COLUMN bon_de_commande_id INTEGER`);
       }
-
-      // Add Cheque/Virement columns
-      newCols.forEach((col) => {
-        if (!columnNames.includes(col.name)) {
-          db.exec(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.type}`);
-        }
-      });
     } catch (e) {
       console.error(`Error ensuring columns for ${table}:`, e);
     }
   });
-
-  try {
-    const transferCols = db.prepare(`PRAGMA table_info(transfers)`).all();
-    const transferColNames = transferCols.map((c) => c.name);
-    if (!transferColNames.includes("description")) {
-      db.exec(`ALTER TABLE transfers ADD COLUMN description TEXT`);
-    }
-  } catch (e) {
-    console.error("Error ensuring columns for transfers:", e);
-  }
 }
-
-const LATEST_VERSION = 9; // Incremented for Bon de Commande addition
 
 function runMigrations() {
   ensureColumns();
-
+  const LATEST_VERSION = 10;
   try {
     const row = db
       .prepare("SELECT value FROM settings WHERE key = 'db_version'")
       .get();
     let currentVersion = row ? parseInt(row.value, 10) : 0;
-
     if (currentVersion >= LATEST_VERSION) return;
-
-    db.transaction(() => {
-      db.prepare(
-        "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)"
-      ).run("db_version", LATEST_VERSION.toString());
-    })();
+    db.prepare(
+      "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+    ).run("db_version", LATEST_VERSION.toString());
   } catch (error) {
     console.error("Migration failed:", error);
   }

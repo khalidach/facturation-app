@@ -28,9 +28,14 @@ export default function PaymentManager({ facture }) {
     in_bank: false,
     cheque_number: "",
     bank_name: "",
-    virement_number: "",
-    bank_from: "",
-    bank_to: "",
+    // Bank Transaction Fields
+    transaction_ref: "",
+    bank_sender: "",
+    bank_recipient: "",
+    account_recipient: "",
+    name_recipient: "",
+    account_sender: "",
+    name_sender: "",
   });
 
   const { data: payments = [], isLoading } = useQuery({
@@ -89,9 +94,13 @@ export default function PaymentManager({ facture }) {
       in_bank: false,
       cheque_number: "",
       bank_name: "",
-      virement_number: "",
-      bank_from: "",
-      bank_to: "",
+      transaction_ref: "",
+      bank_sender: "",
+      bank_recipient: "",
+      account_recipient: "",
+      name_recipient: "",
+      account_sender: "",
+      name_sender: "",
     });
   };
 
@@ -106,9 +115,13 @@ export default function PaymentManager({ facture }) {
       in_bank: p.in_bank === 1,
       cheque_number: p.cheque_number || "",
       bank_name: p.bank_name || "",
-      virement_number: p.virement_number || "",
-      bank_from: p.bank_from || "",
-      bank_to: p.bank_to || "",
+      transaction_ref: p.transaction_ref || "",
+      bank_sender: p.bank_sender || "",
+      bank_recipient: p.bank_recipient || "",
+      account_recipient: p.account_recipient || "",
+      name_recipient: p.name_recipient || "",
+      account_sender: p.account_sender || "",
+      name_sender: p.name_sender || "",
     });
     setIsAdding(true);
   };
@@ -288,6 +301,127 @@ export default function PaymentManager({ facture }) {
             </div>
           </div>
 
+          {/* Detailed Bank Tracking Section */}
+          {["virement", "versement"].includes(formData.payment_method) && (
+            <div className="space-y-4 p-5 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800 animate-in slide-in-from-top-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Référence Transaction
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.transaction_ref}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        transaction_ref: e.target.value,
+                      })
+                    }
+                    placeholder="N° de virement/bordereau"
+                    className="input font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Banque d'Envoi
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_sender}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bank_sender: e.target.value })
+                    }
+                    placeholder="Banque source"
+                    className="input font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Banque de Réception
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bank_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Banque de destination"
+                    className="input font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    N° Compte de Réception
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.account_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        account_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Compte crédité"
+                    className="input font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Nom du Bénéficiaire
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        name_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Qui reçoit l'argent"
+                    className="input font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-emerald-600 ml-1">
+                    N° Compte de l'Envoyeur
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.account_sender}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        account_sender: e.target.value,
+                      })
+                    }
+                    placeholder="Compte débité"
+                    className="input font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-emerald-600 ml-1">
+                    Nom de l'Envoyeur
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name_sender}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name_sender: e.target.value })
+                    }
+                    placeholder="Qui a envoyé l'argent"
+                    className="input font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {formData.payment_method === "cheque" && (
             <div className="space-y-4 animate-in slide-in-from-top-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -407,7 +541,7 @@ export default function PaymentManager({ facture }) {
                 >
                   {getMethodIcon(p.payment_method)}
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="font-black text-gray-900 dark:text-white leading-tight">
                     {p.amount.toLocaleString()}{" "}
                     <span className="text-[10px] opacity-40">MAD</span>
@@ -420,6 +554,14 @@ export default function PaymentManager({ facture }) {
                     <span className="text-[10px] font-black uppercase text-gray-400">
                       {p.payment_method}
                     </span>
+                    {p.transaction_ref && (
+                      <>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                        <span className="text-[10px] font-black uppercase text-blue-500">
+                          Ref: {p.transaction_ref}
+                        </span>
+                      </>
+                    )}
                     {p.cheque_number && (
                       <>
                         <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
@@ -429,6 +571,11 @@ export default function PaymentManager({ facture }) {
                       </>
                     )}
                   </div>
+                  {p.bank_sender && (
+                    <p className="text-[9px] font-bold text-gray-400 uppercase mt-1 truncate">
+                      {p.bank_sender} → {p.bank_recipient || "Banque"}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">

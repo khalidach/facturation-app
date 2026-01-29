@@ -7,9 +7,10 @@ import {
   Trash2,
   Edit2,
   Banknote,
+  Landmark,
+  CheckSquare,
+  CreditCard,
   X,
-  Calendar,
-  CheckCircle2,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -22,22 +23,26 @@ export default function BonDeCommandePaymentManager({ order }) {
     amount: "",
     date: new Date().toISOString().split("T")[0],
     payment_method: "cash",
-    description: `Paiement Bon de Commande ${order.order_number}`,
-    cheque_number: "",
-    bank_name: "",
-    virement_number: "",
-    bank_from: "",
-    bank_to: "",
+    description: `Paiement Bon de Commande ${order?.order_number || ""}`,
     is_cashed: true,
     in_bank: false,
+    cheque_number: "",
+    bank_name: "",
+    // Bank Transaction Fields
+    transaction_ref: "",
+    bank_sender: "",
+    bank_recipient: "",
+    account_recipient: "",
+    name_recipient: "",
   });
 
   const { data: payments = [], isLoading } = useQuery({
-    queryKey: ["bc-payments", order.id],
-    queryFn: () => window.electronAPI.getPaymentsByBonDeCommande(order.id),
+    queryKey: ["bc-payments", order?.id],
+    queryFn: () => window.electronAPI.getPaymentsByBonDeCommande(order?.id),
+    enabled: !!order?.id,
   });
 
-  const { mutate: savePayment, isPending: isSaving } = useMutation({
+  const { mutate: savePayment } = useMutation({
     mutationFn: (data) => {
       const payload = {
         ...data,
@@ -56,24 +61,24 @@ export default function BonDeCommandePaymentManager({ order }) {
       return window.electronAPI.createTransaction(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bc-payments"] });
-      queryClient.invalidateQueries({ queryKey: ["bon-de-commandes"] });
+      queryClient.invalidateQueries({ queryKey: ["bc-payments", order.id] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
-      toast.success(
-        editingPayment ? "Règlement mis à jour" : "Règlement enregistré",
-      );
+      queryClient.invalidateQueries({ queryKey: ["bon-de-commandes"] });
+      toast.success("Paiement enregistré");
       resetForm();
     },
-    onError: () => toast.error("Erreur lors de l'enregistrement"),
+    onError: (err) => toast.error(err.message),
   });
 
   const { mutate: deletePayment } = useMutation({
     mutationFn: (id) =>
       window.electronAPI.deleteTransaction({ id, type: "expense" }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bc-payments"] });
-      queryClient.invalidateQueries({ queryKey: ["bon-de-commandes"] });
+      queryClient.invalidateQueries({ queryKey: ["bc-payments", order.id] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["treasuryStats"] });
+      queryClient.invalidateQueries({ queryKey: ["bon-de-commandes"] });
       toast.success("Paiement supprimé");
     },
   });
@@ -85,14 +90,16 @@ export default function BonDeCommandePaymentManager({ order }) {
       amount: "",
       date: new Date().toISOString().split("T")[0],
       payment_method: "cash",
-      description: `Paiement Bon de Commande ${order.order_number}`,
-      cheque_number: "",
-      bank_name: "",
-      virement_number: "",
-      bank_from: "",
-      bank_to: "",
+      description: `Paiement Bon de Commande ${order?.order_number || ""}`,
       is_cashed: true,
       in_bank: false,
+      cheque_number: "",
+      bank_name: "",
+      transaction_ref: "",
+      bank_sender: "",
+      bank_recipient: "",
+      account_recipient: "",
+      name_recipient: "",
     });
   };
 
@@ -103,319 +110,379 @@ export default function BonDeCommandePaymentManager({ order }) {
       date: p.date,
       payment_method: p.payment_method,
       description: p.description,
-      cheque_number: p.cheque_number || "",
-      bank_name: p.bank_name || "",
-      virement_number: p.virement_number || "",
-      bank_from: p.bank_from || "",
-      bank_to: p.bank_to || "",
       is_cashed: p.is_cashed === 1,
       in_bank: p.in_bank === 1,
+      cheque_number: p.cheque_number || "",
+      bank_name: p.bank_name || "",
+      transaction_ref: p.transaction_ref || "",
+      bank_sender: p.bank_sender || "",
+      bank_recipient: p.bank_recipient || "",
+      account_recipient: p.account_recipient || "",
+      name_recipient: p.name_recipient || "",
     });
     setIsAdding(true);
   };
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-  const remaining = order.total - totalPaid;
+  const remaining = (order?.total || 0) - totalPaid;
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-
-    if (name === "payment_method") {
-      let updates = { payment_method: value };
-      if (value === "cash") {
-        updates.in_bank = false;
-        updates.is_cashed = true;
-      } else if (["virement", "versement"].includes(value)) {
-        updates.in_bank = true;
-        updates.is_cashed = true;
-      }
-      setFormData((prev) => ({ ...prev, ...updates }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-      }));
-    }
-  };
-
-  const handleConfirmAction = () => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
     const inputAmount = parseFloat(formData.amount);
-    if (isNaN(inputAmount) || inputAmount <= 0) {
-      return toast.error("Veuillez saisir un montant valide.");
-    }
+    if (isNaN(inputAmount) || inputAmount <= 0)
+      return toast.error("Montant invalide");
+
     const currentLimit =
       remaining + (editingPayment ? editingPayment.amount : 0);
     if (inputAmount > currentLimit + 0.01) {
       return toast.error(
-        `Le paiement ne peut pas dépasser le solde restant (${currentLimit.toLocaleString()} MAD)`,
+        `Le montant dépasse le solde restant (${currentLimit.toLocaleString()} MAD)`,
       );
     }
-    savePayment({ ...formData, amount: inputAmount });
+    savePayment(formData);
   };
+
+  const getMethodIcon = (method) => {
+    switch (method) {
+      case "virement":
+        return <Landmark className="w-4 h-4" />;
+      case "cheque":
+        return <CheckSquare className="w-4 h-4" />;
+      case "versement":
+        return <CreditCard className="w-4 h-4" />;
+      default:
+        return <Banknote className="w-4 h-4" />;
+    }
+  };
+
+  // Fallback if component is rendered without an order
+  if (!order) return null;
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-2xl border dark:border-gray-700 text-center">
-          <p className="text-[10px] font-black uppercase text-gray-400">
-            Total Commande
+      <div className="flex justify-between items-center p-5 bg-gray-50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700">
+        <div>
+          <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
+            Solde fournisseur
           </p>
-          <p className="text-xl font-black dark:text-white">
-            {order.total.toLocaleString()} MAD
-          </p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span
+              className={`text-3xl font-black ${remaining <= 0.01 ? "text-emerald-600" : "text-rose-600"}`}
+            >
+              {Math.max(0, remaining).toLocaleString()}
+            </span>
+            <span className="text-xs font-bold text-gray-400">MAD À PAYER</span>
+          </div>
         </div>
-        <div className="p-4 bg-rose-50 dark:bg-rose-900/10 rounded-2xl border border-rose-100 dark:border-rose-900/30 text-center">
-          <p className="text-[10px] font-black uppercase text-rose-400">
-            Reste à payer
-          </p>
-          <p className="text-xl font-black text-rose-600">
-            {Math.max(0, remaining).toLocaleString()} MAD
-          </p>
-        </div>
+        {!isAdding && remaining > 0.01 && (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="px-6 py-3 bg-rose-600 text-white rounded-xl font-black text-sm flex items-center gap-2 hover:bg-rose-700 shadow-lg shadow-rose-500/20 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Effectuer un paiement
+          </button>
+        )}
       </div>
 
-      {!isAdding ? (
-        <button
-          onClick={() => {
-            setIsAdding(true);
-            setFormData((prev) => ({
-              ...prev,
-              amount: remaining > 0 ? remaining : "",
-            }));
-          }}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center transition-all shadow-lg shadow-blue-500/20"
+      {isAdding && (
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 bg-white dark:bg-gray-800 border-2 border-rose-500/20 rounded-2xl space-y-6 animate-in slide-in-from-top-4"
         >
-          <Plus className="w-5 h-5 mr-2" /> Nouveau Paiement
-        </button>
-      ) : (
-        <div className="p-5 border-2 border-blue-100 dark:border-blue-900/30 rounded-2xl bg-white dark:bg-gray-800 space-y-4 animate-in slide-in-from-top-2">
           <div className="flex justify-between items-center mb-2">
-            <h4 className="font-black text-blue-600 uppercase text-xs tracking-widest">
-              {editingPayment
-                ? "Modification du règlement"
-                : "Saisie d'un règlement"}
+            <h4 className="text-sm font-black uppercase text-rose-600 tracking-widest">
+              {editingPayment ? "Édition du paiement" : "Nouveau paiement"}
             </h4>
             <button
+              type="button"
               onClick={resetForm}
               className="text-gray-400 hover:text-gray-600"
             >
-              <X />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                Montant
+                Montant Payé
               </label>
               <input
-                name="amount"
                 type="number"
                 step="0.01"
+                required
                 value={formData.amount}
-                onChange={handleInputChange}
-                className="input text-lg font-black"
+                onChange={(e) =>
+                  setFormData({ ...formData, amount: e.target.value })
+                }
+                className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all text-lg font-black"
                 placeholder="0.00"
                 autoFocus
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-                Date
+                Date du Paiement
               </label>
               <input
-                name="date"
                 type="date"
+                required
                 value={formData.date}
-                onChange={handleInputChange}
-                className="input font-bold"
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
+                className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all font-bold"
               />
             </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
-              Mode de règlement
-            </label>
-            <select
-              name="payment_method"
-              value={formData.payment_method}
-              onChange={handleInputChange}
-              className="input w-full font-bold"
-            >
-              <option value="cash">Espèces (Caisse)</option>
-              <option value="cheque">Chèque</option>
-              <option value="virement">Virement Bancaire</option>
-              <option value="versement">Versement</option>
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                Mode de règlement
+              </label>
+              <select
+                value={formData.payment_method}
+                onChange={(e) => {
+                  const method = e.target.value;
+                  let updates = { payment_method: method };
+                  if (method === "cash") {
+                    updates.in_bank = false;
+                    updates.is_cashed = true;
+                  } else if (["virement", "versement"].includes(method)) {
+                    updates.in_bank = true;
+                    updates.is_cashed = true;
+                  }
+                  setFormData({ ...formData, ...updates });
+                }}
+                className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all font-black"
+              >
+                <option value="cash">Espèces</option>
+                <option value="virement">Virement</option>
+                <option value="cheque">Chèque</option>
+                <option value="versement">Versement</option>
+              </select>
+            </div>
           </div>
 
-          {formData.payment_method === "cheque" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-dashed border-gray-300">
-                <input
-                  name="cheque_number"
-                  value={formData.cheque_number}
-                  onChange={handleInputChange}
-                  placeholder="N° Chèque"
-                  className="input text-sm"
-                />
-                <input
-                  name="bank_name"
-                  value={formData.bank_name}
-                  onChange={handleInputChange}
-                  placeholder="Banque"
-                  className="input text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      is_cashed: false,
-                      in_bank: false,
-                    }))
-                  }
-                  className={`py-2 rounded-xl text-[9px] font-black uppercase border-2 ${!formData.is_cashed ? "border-amber-500 bg-amber-50 text-amber-600" : "border-gray-100 text-gray-400"}`}
-                >
-                  En attente
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      is_cashed: true,
-                      in_bank: true,
-                    }))
-                  }
-                  className={`py-2 rounded-xl text-[9px] font-black uppercase border-2 ${formData.is_cashed && formData.in_bank ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-100 text-gray-400"}`}
-                >
-                  En Banque
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      is_cashed: true,
-                      in_bank: false,
-                    }))
-                  }
-                  className={`py-2 rounded-xl text-[9px] font-black uppercase border-2 ${formData.is_cashed && !formData.in_bank ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-gray-100 text-gray-400"}`}
-                >
-                  En Caisse
-                </button>
+          {/* Virement & Versement Detailed Tracking */}
+          {["virement", "versement"].includes(formData.payment_method) && (
+            <div className="space-y-4 p-5 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800 animate-in slide-in-from-top-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Référence Transaction
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.transaction_ref}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        transaction_ref: e.target.value,
+                      })
+                    }
+                    placeholder="N° de virement/bordereau"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Banque d'Envoi
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_sender}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bank_sender: e.target.value })
+                    }
+                    placeholder="Banque source"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Banque de Réception
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bank_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Banque de destination"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    N° Compte de Réception
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.account_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        account_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Compte crédité"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Nom du Bénéficiaire
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        name_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Qui reçoit l'argent (Nom du fournisseur)"
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 rounded-xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
               </div>
             </div>
           )}
 
-          <div className="flex gap-6 px-1">
-            {formData.payment_method === "cheque" && (
-              <>
-                <label className="flex items-center text-[10px] font-black uppercase text-gray-500 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="is_cashed"
-                    checked={formData.is_cashed}
-                    onChange={handleInputChange}
-                    className="mr-2 rounded text-emerald-600"
-                  />{" "}
-                  Confirmé / Encaissé
-                </label>
-                <label className="flex items-center text-[10px] font-black uppercase text-gray-500 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="in_bank"
-                    checked={formData.in_bank}
-                    onChange={handleInputChange}
-                    className="mr-2 rounded text-blue-600"
-                  />{" "}
-                  En banque
-                </label>
-              </>
-            )}
-          </div>
+          {formData.payment_method === "cheque" && (
+            <div className="space-y-4 animate-in slide-in-from-top-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <input
+                  type="text"
+                  value={formData.cheque_number}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cheque_number: e.target.value })
+                  }
+                  placeholder="N° Chèque"
+                  className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all font-bold"
+                />
+                <input
+                  type="text"
+                  value={formData.bank_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bank_name: e.target.value })
+                  }
+                  placeholder="Banque"
+                  className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all font-bold"
+                />
+              </div>
+            </div>
+          )}
 
-          <button
-            disabled={!formData.amount || isSaving}
-            onClick={handleConfirmAction}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 disabled:opacity-50 transition-all"
-          >
-            {isSaving
-              ? "Traitement..."
-              : editingPayment
-                ? "Mettre à jour le règlement"
-                : "Confirmer le Paiement"}
-          </button>
-        </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={resetForm}
+              className="px-6 py-3 text-xs font-black uppercase text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              className="px-8 py-3 bg-rose-600 text-white rounded-xl font-black text-sm shadow-lg shadow-rose-500/20 hover:bg-rose-700 transition-all"
+            >
+              {editingPayment
+                ? "Confirmer les modifications"
+                : "Enregistrer le paiement"}
+            </button>
+          </div>
+        </form>
       )}
 
       <div className="space-y-3">
         <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">
-          Historique des transactions
+          Historique des règlements
         </h4>
         {isLoading ? (
-          <div className="text-center py-4 animate-pulse text-gray-400 font-bold">
-            Chargement...
+          <div className="py-10 text-center animate-pulse text-gray-400 font-bold">
+            Synchronisation...
           </div>
         ) : payments.length === 0 ? (
-          <div className="text-center py-8 border-2 border-dashed rounded-2xl text-gray-400 text-sm italic">
-            Aucun paiement enregistré pour ce bon.
+          <div className="py-12 bg-gray-50 dark:bg-gray-700/20 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 flex flex-col items-center justify-center text-gray-400 italic">
+            <Banknote className="w-10 h-10 mb-2 opacity-20" />
+            <span className="text-sm">
+              Aucun paiement enregistré pour cette commande.
+            </span>
           </div>
         ) : (
-          <div className="space-y-2">
-            {payments.map((p) => (
-              <div
-                key={p.id}
-                className="group flex items-center justify-between p-4 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-2xl hover:border-blue-500/30 transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`p-2 rounded-lg ${p.payment_method === "cash" ? "bg-amber-100 text-amber-600 dark:bg-amber-900/20" : "bg-blue-100 text-blue-600 dark:bg-blue-900/20"}`}
-                  >
-                    <Banknote className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-black dark:text-white">
-                        {p.amount.toLocaleString()} MAD
-                      </p>
-                      {p.is_cashed && (
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                      )}
-                    </div>
-                    <p className="text-[10px] text-gray-400 flex items-center gap-2">
-                      <Calendar className="w-3 h-3" />{" "}
-                      {new Date(p.date).toLocaleDateString()}
-                      <span className="capitalize">• {p.payment_method}</span>
-                      {p.cheque_number && <span>• N° {p.cheque_number}</span>}
-                    </p>
-                  </div>
+          payments.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl group hover:border-rose-500/30 transition-all"
+            >
+              <div className="flex items-center gap-4">
+                <div
+                  className={`p-3 rounded-xl ${p.payment_method === "cash" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20" : "bg-rose-50 text-rose-600 dark:bg-rose-900/20"}`}
+                >
+                  {getMethodIcon(p.payment_method)}
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                  <button
-                    onClick={() => handleEdit(p)}
-                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (confirm("Supprimer ce règlement ?"))
-                        deletePayment(p.id);
-                    }}
-                    className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <div className="flex-1 min-w-0">
+                  <p className="font-black text-gray-900 dark:text-white leading-tight">
+                    {p.amount.toLocaleString()}{" "}
+                    <span className="text-[10px] opacity-40">MAD</span>
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <span className="text-[10px] font-black uppercase text-gray-400">
+                      {new Date(p.date).toLocaleDateString("fr-FR")}
+                    </span>
+                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                    <span className="text-[10px] font-black uppercase text-gray-400">
+                      {p.payment_method}
+                    </span>
+                    {p.transaction_ref && (
+                      <>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                        <span className="text-[10px] font-black uppercase text-blue-500">
+                          Ref: {p.transaction_ref}
+                        </span>
+                      </>
+                    )}
+                    {p.cheque_number && (
+                      <>
+                        <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                        <span className="text-[10px] font-black uppercase text-rose-500">
+                          N° {p.cheque_number}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {p.bank_recipient && (
+                    <p className="text-[9px] font-bold text-gray-400 uppercase mt-1 truncate">
+                      Vers: {p.bank_recipient} ({p.account_recipient || "---"})
+                    </p>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
+              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                <button
+                  onClick={() => handleEdit(p)}
+                  className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm("Supprimer ce règlement ?"))
+                      deletePayment(p.id);
+                  }}
+                  className="p-2.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>

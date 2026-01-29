@@ -99,7 +99,7 @@ ipcMain.handle(
 
     if (search) {
       where +=
-        " AND (description LIKE ? OR category LIKE ? OR contact_person LIKE ? OR cheque_number LIKE ? OR virement_number LIKE ?)";
+        " AND (description LIKE ? OR category LIKE ? OR contact_person LIKE ? OR cheque_number LIKE ? OR transaction_ref LIKE ?)";
       const t = `%${search}%`;
       params.push(t, t, t, t, t);
     }
@@ -143,9 +143,13 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       "in_bank",
       "cheque_number",
       "bank_name",
-      "virement_number",
-      "bank_from",
-      "bank_to",
+      "transaction_ref",
+      "bank_sender",
+      "bank_recipient",
+      "account_recipient",
+      "name_recipient",
+      "account_sender",
+      "name_sender",
     ];
     const values = [
       data.amount,
@@ -158,9 +162,13 @@ ipcMain.handle("db:createTransaction", (event, data) => {
       data.in_bank ? 1 : 0,
       data.cheque_number || null,
       data.bank_name || null,
-      data.virement_number || null,
-      data.bank_from || null,
-      data.bank_to || null,
+      data.transaction_ref || null,
+      data.bank_sender || null,
+      data.bank_recipient || null,
+      data.account_recipient || null,
+      data.name_recipient || null,
+      data.account_sender || null,
+      data.name_sender || null,
     ];
 
     if (tableName === "incomes") {
@@ -175,9 +183,7 @@ ipcMain.handle("db:createTransaction", (event, data) => {
 
     const placeholders = columns.map(() => "?").join(", ");
     const stmt = db.prepare(
-      `INSERT INTO ${tableName} (${columns.join(
-        ", ",
-      )}) VALUES (${placeholders})`,
+      `INSERT INTO ${tableName} (${columns.join(", ")}) VALUES (${placeholders})`,
     );
     const info = stmt.run(...values);
 
@@ -202,9 +208,13 @@ ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
       "in_bank=?",
       "cheque_number=?",
       "bank_name=?",
-      "virement_number=?",
-      "bank_from=?",
-      "bank_to=?",
+      "transaction_ref=?",
+      "bank_sender=?",
+      "bank_recipient=?",
+      "account_recipient=?",
+      "name_recipient=?",
+      "account_sender=?",
+      "name_sender=?",
     ];
     const values = [
       data.amount,
@@ -217,9 +227,13 @@ ipcMain.handle("db:updateTransaction", (event, { id, data }) => {
       data.in_bank ? 1 : 0,
       data.cheque_number || null,
       data.bank_name || null,
-      data.virement_number || null,
-      data.bank_from || null,
-      data.bank_to || null,
+      data.transaction_ref || null,
+      data.bank_sender || null,
+      data.bank_recipient || null,
+      data.account_recipient || null,
+      data.name_recipient || null,
+      data.account_sender || null,
+      data.name_sender || null,
     ];
 
     if (tableName === "incomes") {
@@ -269,7 +283,6 @@ ipcMain.handle("db:getPaymentsByFacture", (event, factureId) => {
 // --- 3. TREASURY & TRANSFERS ---
 ipcMain.handle("db:getTreasuryStats", () => {
   try {
-    // Solde Bancaire : Tout ce qui est marqué "in_bank" et encaissé
     const bankIncome =
       db
         .prepare(
@@ -284,7 +297,6 @@ ipcMain.handle("db:getTreasuryStats", () => {
         )
         .get().total || 0;
 
-    // Solde Caisse : Tout ce qui n'est pas "in_bank" et encaissé (Espèces + Chèques en caisse)
     const cashIncome =
       db
         .prepare(
@@ -299,7 +311,6 @@ ipcMain.handle("db:getTreasuryStats", () => {
         )
         .get().total || 0;
 
-    // Transferts et Chèques en attente
     const bankTransfersIn =
       db
         .prepare(
@@ -865,7 +876,6 @@ ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
     },
   });
 
-  // Inject common print resets to ensure CSS accuracy from your theme
   const styledHtml = `
     <!DOCTYPE html>
     <html>

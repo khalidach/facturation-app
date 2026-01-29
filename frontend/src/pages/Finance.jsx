@@ -105,9 +105,14 @@ export default function Finance() {
     in_bank: false,
     cheque_number: "",
     bank_name: "",
-    virement_number: "",
-    bank_from: "",
-    bank_to: "",
+    // Bank Transaction Fields
+    transaction_ref: "",
+    bank_sender: "",
+    bank_recipient: "",
+    account_recipient: "",
+    name_recipient: "",
+    account_sender: "",
+    name_sender: "",
     bon_de_commande_id: null,
   });
 
@@ -175,9 +180,13 @@ export default function Finance() {
         in_bank: editingTx.in_bank === 1,
         cheque_number: editingTx.cheque_number || "",
         bank_name: editingTx.bank_name || "",
-        virement_number: editingTx.virement_number || "",
-        bank_from: editingTx.bank_from || "",
-        bank_to: editingTx.bank_to || "",
+        transaction_ref: editingTx.transaction_ref || "",
+        bank_sender: editingTx.bank_sender || "",
+        bank_recipient: editingTx.bank_recipient || "",
+        account_recipient: editingTx.account_recipient || "",
+        name_recipient: editingTx.name_recipient || "",
+        account_sender: editingTx.account_sender || "",
+        name_sender: editingTx.name_sender || "",
         facture_id: editingTx.facture_id || null,
         bon_de_commande_id: editingTx.bon_de_commande_id || null,
       });
@@ -196,9 +205,13 @@ export default function Finance() {
         in_bank: false,
         cheque_number: "",
         bank_name: "",
-        virement_number: "",
-        bank_from: "",
-        bank_to: "",
+        transaction_ref: "",
+        bank_sender: "",
+        bank_recipient: "",
+        account_recipient: "",
+        name_recipient: "",
+        account_sender: "",
+        name_sender: "",
         facture_id: null,
         bon_de_commande_id: null,
       }));
@@ -619,6 +632,136 @@ export default function Finance() {
               )}
             </div>
           </div>
+
+          {/* Virement & Versement Details Section */}
+          {["virement", "versement"].includes(formData.payment_method) && (
+            <div className="space-y-4 p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-800 animate-in slide-in-from-top-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Référence Transaction
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.transaction_ref}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        transaction_ref: e.target.value,
+                      })
+                    }
+                    placeholder="N° de virement/bordereau"
+                    className="w-full px-6 py-4 bg-white dark:bg-gray-800 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Banque d'Envoi
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_sender}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bank_sender: e.target.value })
+                    }
+                    placeholder="Banque source"
+                    className="w-full px-6 py-4 bg-white dark:bg-gray-800 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Banque de Réception
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bank_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Banque de destination"
+                    className="w-full px-6 py-4 bg-white dark:bg-gray-800 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    N° Compte de Réception
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.account_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        account_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Compte crédité"
+                    className="w-full px-6 py-4 bg-white dark:bg-gray-800 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-blue-500 ml-1">
+                    Nom du Bénéficiaire
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name_recipient}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        name_recipient: e.target.value,
+                      })
+                    }
+                    placeholder="Qui reçoit l'argent"
+                    className="w-full px-6 py-4 bg-white dark:bg-gray-800 rounded-2xl border-2 border-transparent focus:border-blue-500 outline-none transition-all font-bold"
+                  />
+                </div>
+
+                {activeTab === "income" && (
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-emerald-500 ml-1">
+                        N° Compte de l'Envoyeur
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.account_sender}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            account_sender: e.target.value,
+                          })
+                        }
+                        placeholder="Compte débité"
+                        className="w-full px-6 py-4 bg-white dark:bg-gray-800 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none transition-all font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-emerald-500 ml-1">
+                        Nom de l'Envoyeur
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.name_sender}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            name_sender: e.target.value,
+                          })
+                        }
+                        placeholder="Qui a envoyé l'argent"
+                        className="w-full px-6 py-4 bg-white dark:bg-gray-800 rounded-2xl border-2 border-transparent focus:border-emerald-500 outline-none transition-all font-bold"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {formData.payment_method === "cheque" && (
             <div className="space-y-4 animate-in slide-in-from-top-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -629,7 +772,7 @@ export default function Finance() {
                     setFormData({ ...formData, cheque_number: e.target.value })
                   }
                   placeholder="N° Chèque"
-                  className="input font-bold"
+                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
                 />
                 <input
                   type="text"
@@ -638,7 +781,7 @@ export default function Finance() {
                     setFormData({ ...formData, bank_name: e.target.value })
                   }
                   placeholder="Banque émettrice"
-                  className="input font-bold"
+                  className="w-full px-6 py-4 bg-gray-50 dark:bg-gray-700/50 rounded-2xl border-2 border-transparent focus:border-blue-500 focus:bg-white outline-none transition-all font-bold"
                 />
               </div>
 
