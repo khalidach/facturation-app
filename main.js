@@ -4,7 +4,7 @@ const fs = require("fs");
 const db = require("./backend/database");
 const { machineIdSync } = require("node-machine-id");
 const sanitizeHtml = require("sanitize-html");
-const { z } = require("zod"); // Added Zod for validation
+const { z } = require("zod");
 
 const persistentMachineId = machineIdSync({ original: true });
 const isDev = process.env.npm_lifecycle_event === "dev:electron";
@@ -80,6 +80,12 @@ function createWindow() {
 
 // --- 2. IPC HANDLERS ---
 
+// Strict Whitelist for Dynamic Table Names
+const ALLOWED_FINANCE_TABLES = {
+  income: "incomes",
+  expense: "expenses",
+};
+
 // --- 1. DASHBOARD & ANALYTICS ---
 ipcMain.handle("db:getDashboardStats", (event, args) => {
   const { startDate, endDate } = args;
@@ -139,7 +145,11 @@ ipcMain.handle("db:getTransactions", (event, args) => {
     throw new Error(`Invalid arguments: ${validation.error.message}`);
 
   const { page, limit, search, type } = validation.data;
-  const tableName = type === "expense" ? "expenses" : "incomes";
+
+  // Apply Table Whitelist
+  const tableName = ALLOWED_FINANCE_TABLES[type];
+  if (!tableName) throw new Error("Unauthorized database access attempt.");
+
   const offset = (page - 1) * limit;
   let where = "WHERE 1=1";
   const params = [];
@@ -182,7 +192,11 @@ ipcMain.handle("db:createTransaction", (event, rawData) => {
     );
 
   const data = validation.data;
-  const tableName = data.type === "expense" ? "expenses" : "incomes";
+
+  // Apply Table Whitelist
+  const tableName = ALLOWED_FINANCE_TABLES[data.type];
+  if (!tableName) throw new Error("Unauthorized database access attempt.");
+
   try {
     const columns = [
       "amount",
@@ -250,7 +264,11 @@ ipcMain.handle("db:updateTransaction", (event, { id, data: rawData }) => {
     throw new Error(`Update Validation Failed: ${validation.error.message}`);
 
   const data = validation.data;
-  const tableName = data.type === "expense" ? "expenses" : "incomes";
+
+  // Apply Table Whitelist
+  const tableName = ALLOWED_FINANCE_TABLES[data.type];
+  if (!tableName) throw new Error("Unauthorized database access attempt.");
+
   try {
     const columns = [
       "amount=?",
@@ -311,7 +329,10 @@ ipcMain.handle("db:updateTransaction", (event, { id, data: rawData }) => {
 });
 
 ipcMain.handle("db:deleteTransaction", (event, { id, type }) => {
-  const tableName = type === "expense" ? "expenses" : "incomes";
+  // Apply Table Whitelist
+  const tableName = ALLOWED_FINANCE_TABLES[type];
+  if (!tableName) throw new Error("Unauthorized database access attempt.");
+
   try {
     db.prepare(`DELETE FROM ${tableName} WHERE id = ?`).run(id);
     return { success: true };
