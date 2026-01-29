@@ -5,9 +5,22 @@ const db = require("./backend/database");
 const { machineIdSync } = require("node-machine-id");
 const sanitizeHtml = require("sanitize-html");
 const { z } = require("zod");
+const crypto = require("crypto"); // Added for signature verification
 
 const persistentMachineId = machineIdSync({ original: true });
 const isDev = process.env.npm_lifecycle_event === "dev:electron";
+
+// --- SECURITY CONFIGURATION ---
+// Replace this placeholder with your actual RSA Public Key from the Netlify server
+const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArtJtmr/8JITF4QFJlht8
+HRqUQQRdh/ez2U9IP3+Tq6EzLii2UfXrZsCGpTeo8tVpum38DplPH4Cee7DZjJ4F
+E7JGSq6h6fWUIVJ/OVFpG9+sUpS8fleMv++aG2XkB3+podo11h5Zy0UFseOsd7QW
+kQ936eWMJ9qp1zCPmN5m3+dTxi7uVcYEVInzi33VYyC9OlF6ceZpOnuFX+FQ2V3g
+0hCTW/aKHqomiuHuOMQNenAYygR+sxI3NefrK6qzLuajT86OzjfPiZIRLOU+3PUO
+RNTrqucENfEpMwC1ib3z2skSEqndyMMyU6cDq/PumW6Sob3sFai864m0P2u1t4Xn
+ywIDAQAB
+-----END PUBLIC KEY-----`;
 
 // --- 1. VALIDATION SCHEMAS ---
 
@@ -80,7 +93,6 @@ function createWindow() {
 
 // --- 2. IPC HANDLERS ---
 
-// Strict Whitelist for Dynamic Table Names
 const ALLOWED_FINANCE_TABLES = {
   income: "incomes",
   expense: "expenses",
@@ -145,8 +157,6 @@ ipcMain.handle("db:getTransactions", (event, args) => {
     throw new Error(`Invalid arguments: ${validation.error.message}`);
 
   const { page, limit, search, type } = validation.data;
-
-  // Apply Table Whitelist
   const tableName = ALLOWED_FINANCE_TABLES[type];
   if (!tableName) throw new Error("Unauthorized database access attempt.");
 
@@ -192,8 +202,6 @@ ipcMain.handle("db:createTransaction", (event, rawData) => {
     );
 
   const data = validation.data;
-
-  // Apply Table Whitelist
   const tableName = ALLOWED_FINANCE_TABLES[data.type];
   if (!tableName) throw new Error("Unauthorized database access attempt.");
 
@@ -264,8 +272,6 @@ ipcMain.handle("db:updateTransaction", (event, { id, data: rawData }) => {
     throw new Error(`Update Validation Failed: ${validation.error.message}`);
 
   const data = validation.data;
-
-  // Apply Table Whitelist
   const tableName = ALLOWED_FINANCE_TABLES[data.type];
   if (!tableName) throw new Error("Unauthorized database access attempt.");
 
@@ -329,7 +335,6 @@ ipcMain.handle("db:updateTransaction", (event, { id, data: rawData }) => {
 });
 
 ipcMain.handle("db:deleteTransaction", (event, { id, type }) => {
-  // Apply Table Whitelist
   const tableName = ALLOWED_FINANCE_TABLES[type];
   if (!tableName) throw new Error("Unauthorized database access attempt.");
 
@@ -526,7 +531,6 @@ ipcMain.handle("db:createFacture", (event, rawData) => {
     throw new Error(
       `Facture Validation Failed: ${JSON.stringify(validation.error.flatten().fieldErrors)}`,
     );
-
   const data = validation.data;
   let { facture_number } = data;
   let newNum = null;
@@ -607,7 +611,7 @@ ipcMain.handle("db:deleteFacture", (event, id) => {
   }
 });
 
-// --- 5. BON DE COMMANDE (PURCHASE ORDERS) ---
+// --- 5. BON DE COMMANDE ---
 ipcMain.handle("db:getBonDeCommandes", (event, args) => {
   const validation = PaginationSchema.safeParse(args);
   if (!validation.success)
@@ -754,7 +758,7 @@ ipcMain.handle("db:getBonDeCommandeById", (event, id) => {
   }
 });
 
-// --- 6. CONTACTS (CLIENTS & SUPPLIERS) ---
+// --- 6. CONTACTS ---
 ipcMain.handle("db:getClients", (event, args) => {
   const { page = 1, limit = 10, search = "" } = args;
   const offset = (page - 1) * limit;
@@ -907,7 +911,7 @@ ipcMain.handle("db:updateTheme", (event, { styles }) => {
   return { success: true };
 });
 
-// --- 8. LICENSE VERIFICATION ---
+// --- 8. SECURE LICENSE VERIFICATION ---
 ipcMain.handle("license:verify", async (event, { licenseCode }) => {
   try {
     const res = await fetch(
@@ -918,7 +922,44 @@ ipcMain.handle("license:verify", async (event, { licenseCode }) => {
         body: JSON.stringify({ licenseCode, machineId: persistentMachineId }),
       },
     );
-    return await res.json();
+
+    const responseData = await res.json();
+
+    // Digital Signature Verification logic
+    if (responseData.signature) {
+      const verify = crypto.createVerify("SHA256");
+
+      // Reconstruct the payload string to verify against the signature
+      const verificationPayload = JSON.stringify({
+        success: responseData.success,
+        message: responseData.message,
+        machineId: persistentMachineId, // Hardware binding
+      });
+
+      verify.update(verificationPayload);
+      const isVerified = verify.verify(
+        PUBLIC_KEY,
+        responseData.signature,
+        "base64",
+      );
+
+      if (!isVerified) {
+        return {
+          success: false,
+          message:
+            "Security Error: The server response signature is invalid. Verification failed.",
+        };
+      }
+    } else if (!isDev) {
+      // In production, unsigned responses are rejected
+      return {
+        success: false,
+        message:
+          "Security Error: Missing cryptographic signature from verification server.",
+      };
+    }
+
+    return responseData;
   } catch (e) {
     console.error("Verification error:", e);
     throw new Error("Verification service unreachable.");

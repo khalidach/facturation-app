@@ -6,6 +6,9 @@
 facturation.db
 release/
 
+private.pem
+public.pem
+
 # Environment variables
 **/.env
 **/.env.local
