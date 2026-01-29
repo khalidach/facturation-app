@@ -289,25 +289,74 @@ export default function PaymentManager({ facture }) {
           </div>
 
           {formData.payment_method === "cheque" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top-2">
-              <input
-                type="text"
-                value={formData.cheque_number}
-                onChange={(e) =>
-                  setFormData({ ...formData, cheque_number: e.target.value })
-                }
-                placeholder="N° Chèque"
-                className="input font-bold"
-              />
-              <input
-                type="text"
-                value={formData.bank_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, bank_name: e.target.value })
-                }
-                placeholder="Banque émettrice"
-                className="input font-bold"
-              />
+            <div className="space-y-4 animate-in slide-in-from-top-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <input
+                  type="text"
+                  value={formData.cheque_number}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cheque_number: e.target.value })
+                  }
+                  placeholder="N° Chèque"
+                  className="input font-bold"
+                />
+                <input
+                  type="text"
+                  value={formData.bank_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bank_name: e.target.value })
+                  }
+                  placeholder="Banque émettrice"
+                  className="input font-bold"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                  Statut et Destination du Chèque
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        is_cashed: false,
+                        in_bank: false,
+                      })
+                    }
+                    className={`py-2 px-3 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${!formData.is_cashed ? "border-amber-500 bg-amber-50 text-amber-600" : "border-gray-100 text-gray-400"}`}
+                  >
+                    En attente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        is_cashed: true,
+                        in_bank: true,
+                      })
+                    }
+                    className={`py-2 px-3 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${formData.is_cashed && formData.in_bank ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-100 text-gray-400"}`}
+                  >
+                    En Banque
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        is_cashed: true,
+                        in_bank: false,
+                      })
+                    }
+                    className={`py-2 px-3 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${formData.is_cashed && !formData.in_bank ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-gray-100 text-gray-400"}`}
+                  >
+                    En Caisse
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

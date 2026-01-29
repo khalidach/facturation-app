@@ -251,21 +251,65 @@ export default function BonDeCommandePaymentManager({ order }) {
           </div>
 
           {formData.payment_method === "cheque" && (
-            <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-dashed border-gray-300">
-              <input
-                name="cheque_number"
-                value={formData.cheque_number}
-                onChange={handleInputChange}
-                placeholder="N° Chèque"
-                className="input text-sm"
-              />
-              <input
-                name="bank_name"
-                value={formData.bank_name}
-                onChange={handleInputChange}
-                placeholder="Banque émettrice"
-                className="input text-sm"
-              />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-dashed border-gray-300">
+                <input
+                  name="cheque_number"
+                  value={formData.cheque_number}
+                  onChange={handleInputChange}
+                  placeholder="N° Chèque"
+                  className="input text-sm"
+                />
+                <input
+                  name="bank_name"
+                  value={formData.bank_name}
+                  onChange={handleInputChange}
+                  placeholder="Banque"
+                  className="input text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      is_cashed: false,
+                      in_bank: false,
+                    }))
+                  }
+                  className={`py-2 rounded-xl text-[9px] font-black uppercase border-2 ${!formData.is_cashed ? "border-amber-500 bg-amber-50 text-amber-600" : "border-gray-100 text-gray-400"}`}
+                >
+                  En attente
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      is_cashed: true,
+                      in_bank: true,
+                    }))
+                  }
+                  className={`py-2 rounded-xl text-[9px] font-black uppercase border-2 ${formData.is_cashed && formData.in_bank ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-100 text-gray-400"}`}
+                >
+                  En Banque
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      is_cashed: true,
+                      in_bank: false,
+                    }))
+                  }
+                  className={`py-2 rounded-xl text-[9px] font-black uppercase border-2 ${formData.is_cashed && !formData.in_bank ? "border-emerald-500 bg-emerald-50 text-emerald-600" : "border-gray-100 text-gray-400"}`}
+                >
+                  En Caisse
+                </button>
+              </div>
             </div>
           )}
 

@@ -620,25 +620,74 @@ export default function Finance() {
             </div>
           </div>
           {formData.payment_method === "cheque" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <input
-                type="text"
-                value={formData.cheque_number}
-                onChange={(e) =>
-                  setFormData({ ...formData, cheque_number: e.target.value })
-                }
-                placeholder="N° Chèque"
-                className="input font-bold"
-              />
-              <input
-                type="text"
-                value={formData.bank_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, bank_name: e.target.value })
-                }
-                placeholder="Banque"
-                className="input font-bold"
-              />
+            <div className="space-y-4 animate-in slide-in-from-top-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <input
+                  type="text"
+                  value={formData.cheque_number}
+                  onChange={(e) =>
+                    setFormData({ ...formData, cheque_number: e.target.value })
+                  }
+                  placeholder="N° Chèque"
+                  className="input font-bold"
+                />
+                <input
+                  type="text"
+                  value={formData.bank_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bank_name: e.target.value })
+                  }
+                  placeholder="Banque émettrice"
+                  className="input font-bold"
+                />
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-2xl">
+                <label className="text-[10px] font-black uppercase text-gray-400 block mb-3">
+                  État du Chèque
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    {
+                      id: "wait",
+                      label: "En attente",
+                      color: "amber",
+                      vals: { is_cashed: false, in_bank: false },
+                    },
+                    {
+                      id: "bank",
+                      label: "En Banque",
+                      color: "blue",
+                      vals: { is_cashed: true, in_bank: true },
+                    },
+                    {
+                      id: "cash",
+                      label: "En Caisse",
+                      color: "emerald",
+                      vals: { is_cashed: true, in_bank: false },
+                    },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, ...opt.vals })}
+                      className={`py-3 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${
+                        (opt.id === "wait" && !formData.is_cashed) ||
+                        (opt.id === "bank" &&
+                          formData.is_cashed &&
+                          formData.in_bank) ||
+                        (opt.id === "cash" &&
+                          formData.is_cashed &&
+                          !formData.in_bank)
+                          ? `border-${opt.color}-500 bg-${opt.color}-50 text-${opt.color}-600 shadow-sm`
+                          : "border-transparent bg-white dark:bg-gray-800 text-gray-400"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           <div className="flex justify-end gap-4 pt-6">
