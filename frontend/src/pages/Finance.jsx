@@ -105,7 +105,6 @@ export default function Finance() {
     in_bank: false,
     cheque_number: "",
     bank_name: "",
-    // Bank Transaction Fields
     transaction_ref: "",
     bank_sender: "",
     bank_recipient: "",
@@ -582,7 +581,11 @@ export default function Finance() {
                   if (method === "cash") {
                     updates.in_bank = false;
                     updates.is_cashed = true;
-                  } else if (method === "virement" || method === "versement") {
+                  } else if (
+                    method === "virement" ||
+                    method === "versement" ||
+                    (method === "cheque" && activeTab === "expense")
+                  ) {
                     updates.in_bank = true;
                     updates.is_cashed = true;
                   }
@@ -615,25 +618,29 @@ export default function Finance() {
                       Encaissé
                     </span>
                   </label>
-                  <label className="flex items-center cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={formData.in_bank}
-                      onChange={(e) =>
-                        setFormData({ ...formData, in_bank: e.target.checked })
-                      }
-                      className="w-5 h-5 rounded-lg text-blue-600 mr-2"
-                    />
-                    <span className="text-[10px] font-black uppercase text-gray-500">
-                      En banque
-                    </span>
-                  </label>
+                  {activeTab === "income" && (
+                    <label className="flex items-center cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={formData.in_bank}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            in_bank: e.target.checked,
+                          })
+                        }
+                        className="w-5 h-5 rounded-lg text-blue-600 mr-2"
+                      />
+                      <span className="text-[10px] font-black uppercase text-gray-500">
+                        En banque
+                      </span>
+                    </label>
+                  )}
                 </>
               )}
             </div>
           </div>
 
-          {/* Virement & Versement Details Section */}
           {["virement", "versement"].includes(formData.payment_method) && (
             <div className="space-y-4 p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-3xl border border-blue-100 dark:border-blue-800 animate-in slide-in-from-top-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -795,7 +802,10 @@ export default function Finance() {
                       id: "wait",
                       label: "En attente",
                       color: "amber",
-                      vals: { is_cashed: false, in_bank: false },
+                      vals: {
+                        is_cashed: false,
+                        in_bank: activeTab === "expense",
+                      },
                     },
                     {
                       id: "bank",
@@ -809,26 +819,37 @@ export default function Finance() {
                       color: "emerald",
                       vals: { is_cashed: true, in_bank: false },
                     },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, ...opt.vals })}
-                      className={`py-3 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${
-                        (opt.id === "wait" && !formData.is_cashed) ||
-                        (opt.id === "bank" &&
-                          formData.is_cashed &&
-                          formData.in_bank) ||
-                        (opt.id === "cash" &&
-                          formData.is_cashed &&
-                          !formData.in_bank)
-                          ? `border-${opt.color}-500 bg-${opt.color}-50 text-${opt.color}-600 shadow-sm`
-                          : "border-transparent bg-white dark:bg-gray-800 text-gray-400"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                  ].map((opt) => {
+                    // Hide "En Caisse" if it's an expense because cheques are bank-only
+                    if (opt.id === "cash" && activeTab === "expense")
+                      return null;
+
+                    const isActive =
+                      (opt.id === "wait" && !formData.is_cashed) ||
+                      (opt.id === "bank" &&
+                        formData.is_cashed &&
+                        formData.in_bank) ||
+                      (opt.id === "cash" &&
+                        formData.is_cashed &&
+                        !formData.in_bank);
+
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() =>
+                          setFormData({ ...formData, ...opt.vals })
+                        }
+                        className={`py-3 rounded-xl text-[10px] font-black uppercase border-2 transition-all ${
+                          isActive
+                            ? `border-${opt.color}-500 bg-${opt.color}-50 text-${opt.color}-600 shadow-sm`
+                            : "border-transparent bg-white dark:bg-gray-800 text-gray-400"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

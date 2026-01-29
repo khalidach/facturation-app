@@ -155,7 +155,6 @@ export default function BonDeCommandePaymentManager({ order }) {
     }
   };
 
-  // Fallback if component is rendered without an order
   if (!order) return null;
 
   return (
@@ -249,7 +248,10 @@ export default function BonDeCommandePaymentManager({ order }) {
                   if (method === "cash") {
                     updates.in_bank = false;
                     updates.is_cashed = true;
-                  } else if (["virement", "versement"].includes(method)) {
+                  } else if (
+                    ["virement", "versement", "cheque"].includes(method)
+                  ) {
+                    // For cheques, we now force in_bank to true
                     updates.in_bank = true;
                     updates.is_cashed = true;
                   }
@@ -265,7 +267,6 @@ export default function BonDeCommandePaymentManager({ order }) {
             </div>
           </div>
 
-          {/* Virement & Versement Detailed Tracking */}
           {["virement", "versement"].includes(formData.payment_method) && (
             <div className="space-y-4 p-5 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-800 animate-in slide-in-from-top-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -358,24 +359,66 @@ export default function BonDeCommandePaymentManager({ order }) {
           {formData.payment_method === "cheque" && (
             <div className="space-y-4 animate-in slide-in-from-top-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <input
-                  type="text"
-                  value={formData.cheque_number}
-                  onChange={(e) =>
-                    setFormData({ ...formData, cheque_number: e.target.value })
-                  }
-                  placeholder="N° Chèque"
-                  className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all font-bold"
-                />
-                <input
-                  type="text"
-                  value={formData.bank_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, bank_name: e.target.value })
-                  }
-                  placeholder="Banque"
-                  className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all font-bold"
-                />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                    N° Chèque
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.cheque_number}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        cheque_number: e.target.value,
+                      })
+                    }
+                    placeholder="XXXXXX"
+                    className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                    Banque Émettrice
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_name}
+                    onChange={(e) =>
+                      setFormData({ ...formData, bank_name: e.target.value })
+                    }
+                    placeholder="Nom de la banque"
+                    className="w-full px-5 py-3 bg-gray-50 dark:bg-gray-700 rounded-xl border-2 border-transparent focus:border-rose-500 outline-none transition-all font-bold"
+                  />
+                </div>
+              </div>
+
+              {/* Simplified Status for Cheque: Just Cashed/Not Cashed */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
+                  Statut du Chèque
+                </label>
+                <div className="flex items-center gap-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_cashed}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          is_cashed: e.target.checked,
+                        })
+                      }
+                      className="w-5 h-5 rounded-lg text-rose-600 border-gray-300 focus:ring-rose-500"
+                    />
+                    <span className="text-xs font-black uppercase text-gray-500 group-hover:text-gray-700 transition-colors">
+                      Débité / Encaissé par le fournisseur
+                    </span>
+                  </label>
+                </div>
+                <p className="text-[9px] font-bold text-blue-500 uppercase ml-1 italic">
+                  Note : Le montant sera automatiquement déduit du compte
+                  bancaire.
+                </p>
               </div>
             </div>
           )}
@@ -457,6 +500,14 @@ export default function BonDeCommandePaymentManager({ order }) {
                       </>
                     )}
                   </div>
+                  {p.payment_method === "cheque" && (
+                    <p
+                      className={`text-[9px] font-bold uppercase mt-1 ${p.is_cashed ? "text-emerald-600" : "text-amber-600"}`}
+                    >
+                      Statut:{" "}
+                      {p.is_cashed ? "Débité du compte" : "En circulation"}
+                    </p>
+                  )}
                   {p.bank_recipient && (
                     <p className="text-[9px] font-bold text-gray-400 uppercase mt-1 truncate">
                       Vers: {p.bank_recipient} ({p.account_recipient || "---"})
