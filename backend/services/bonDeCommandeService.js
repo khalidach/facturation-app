@@ -32,33 +32,36 @@ function initBonDeCommandeService(db) {
     };
   });
 
+  // Updated with Transaction Pattern for auto-numbering integrity
   ipcMain.handle("db:createBonDeCommande", (event, data) => {
-    let { order_number } = data;
-    if (!order_number || order_number.trim() === "") {
-      const year = new Date(data.date).getFullYear().toString();
-      const last = db
-        .prepare("SELECT MAX(id) as maxId FROM bon_de_commande")
-        .get();
-      order_number = `BC-${String((last.maxId || 0) + 1).padStart(3, "0")}/${year}`;
-    }
-    const info = db
-      .prepare(
-        `INSERT INTO bon_de_commande (order_number, supplierName, supplierAddress, supplierICE, date, items, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        order_number,
-        data.supplierName,
-        data.supplierAddress,
-        data.supplierICE,
-        data.date,
-        JSON.stringify(data.items),
-        data.prixTotalHorsFrais,
-        data.totalFraisServiceHT,
-        data.tva,
-        data.total,
-        data.notes,
-      );
-    return { id: info.lastInsertRowid, ...data, order_number };
+    return db.transaction(() => {
+      let { order_number } = data;
+      if (!order_number || order_number.trim() === "") {
+        const year = new Date(data.date).getFullYear().toString();
+        const last = db
+          .prepare("SELECT MAX(id) as maxId FROM bon_de_commande")
+          .get();
+        order_number = `BC-${String((last.maxId || 0) + 1).padStart(3, "0")}/${year}`;
+      }
+      const info = db
+        .prepare(
+          `INSERT INTO bon_de_commande (order_number, supplierName, supplierAddress, supplierICE, date, items, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          order_number,
+          data.supplierName,
+          data.supplierAddress,
+          data.supplierICE,
+          data.date,
+          JSON.stringify(data.items),
+          data.prixTotalHorsFrais,
+          data.totalFraisServiceHT,
+          data.tva,
+          data.total,
+          data.notes,
+        );
+      return { id: info.lastInsertRowid, ...data, order_number };
+    })();
   });
 
   ipcMain.handle("db:updateBonDeCommande", (event, { id, data }) => {
@@ -80,8 +83,28 @@ function initBonDeCommandeService(db) {
     return { id, ...data };
   });
 
+  // Updated with Transaction Pattern to ensure cleanup of expenses
   ipcMain.handle("db:deleteBonDeCommande", (event, id) => {
-    db.prepare("DELETE FROM bon_de_commande WHERE id = ?").run(id);
+    db.transaction(() => {
+      db.prepare("DELETE FROM expenses WHERE bon_de_commande_id = ?").run(id);
+      db.prepare("DELETE FROM bon_de_commande WHERE id = ?").run(id);
+    })();
+    return { success: true };
+  });
+
+  // New: Bulk Delete handler using the Batch Transaction pattern
+  ipcMain.handle("db:bulkDeleteBonDeCommandes", (event, ids) => {
+    const deleteBcStmt = db.prepare("DELETE FROM bon_de_commande WHERE id = ?");
+    const deleteExpensesStmt = db.prepare(
+      "DELETE FROM expenses WHERE bon_de_commande_id = ?",
+    );
+
+    db.transaction(() => {
+      for (const id of ids) {
+        deleteExpensesStmt.run(id);
+        deleteBcStmt.run(id);
+      }
+    })();
     return { success: true };
   });
 
