@@ -49,7 +49,8 @@ const PaginationSchema = z.object({
 });
 
 const TransactionSchema = z.object({
-  amount: z.number().positive(),
+  // FIXED: Added z.coerce.number() to handle strings from frontend inputs
+  amount: z.coerce.number().positive(),
   description: z.string().nullable().optional(),
   category: z.string().min(1).default("General"),
   contact_person: z.string().nullable().optional(),
@@ -81,10 +82,10 @@ const FactureSchema = z.object({
   items: z.array(z.any()),
   type: z.enum(["facture", "devis"]),
   showMargin: z.boolean().default(true),
-  prixTotalHorsFrais: z.number(),
-  totalFraisServiceHT: z.number(),
-  tva: z.number(),
-  total: z.number(),
+  prixTotalHorsFrais: z.coerce.number(), // Added coercion here as well for safety
+  totalFraisServiceHT: z.coerce.number(),
+  tva: z.coerce.number(),
+  total: z.coerce.number(),
   notes: z.string().nullable().optional(),
   facture_number: z.string().nullable().optional(),
 });
