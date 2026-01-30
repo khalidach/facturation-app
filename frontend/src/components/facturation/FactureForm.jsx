@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Loader2 } from "lucide-react"; // Added Loader2 for visual feedback
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ClientSearch from "./ClientSearch.jsx";
@@ -26,6 +26,9 @@ export default function FactureForm({
   const [notes, setNotes] = useState("");
   const [showMargin, setShowMargin] = useState(showMarginOnNew);
   const [factureNumber, setFactureNumber] = useState("");
+
+  // New state to manage loading/saving state
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (existingFacture) {
@@ -129,37 +132,49 @@ export default function FactureForm({
     };
   }, [items, showMargin]);
 
-  const handleSubmit = (e) => {
+  // Updated handleSubmit to handle loading state
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const finalItems = calculatedTotals.itemsWithTotals.map((item) => ({
-      description: item.description,
-      quantity: item.quantity,
-      prixUnitaire: item.prixUnitaire,
-      fraisServiceUnitaire: item.fraisServiceUnitaire,
-      total: item.total,
-    }));
+    if (isSaving) return;
 
-    const dateForBackend = new Date(
-      date.getTime() - date.getTimezoneOffset() * 60000
-    )
-      .toISOString()
-      .split("T")[0];
+    setIsSaving(true);
 
-    onSave({
-      facture_number: factureNumber,
-      clientName,
-      clientAddress,
-      clientICE,
-      date: dateForBackend,
-      items: finalItems,
-      type,
-      showMargin,
-      prixTotalHorsFrais: calculatedTotals.prixTotalHorsFrais,
-      totalFraisServiceHT: calculatedTotals.totalFraisServiceHT,
-      tva: calculatedTotals.tva,
-      total: calculatedTotals.totalFacture,
-      notes,
-    });
+    try {
+      const finalItems = calculatedTotals.itemsWithTotals.map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        prixUnitaire: item.prixUnitaire,
+        fraisServiceUnitaire: item.fraisServiceUnitaire,
+        total: item.total,
+      }));
+
+      const dateForBackend = new Date(
+        date.getTime() - date.getTimezoneOffset() * 60000,
+      )
+        .toISOString()
+        .split("T")[0];
+
+      // We await the onSave call to ensure the backend has finished processing
+      await onSave({
+        facture_number: factureNumber,
+        clientName,
+        clientAddress,
+        clientICE,
+        date: dateForBackend,
+        items: finalItems,
+        type,
+        showMargin,
+        prixTotalHorsFrais: calculatedTotals.prixTotalHorsFrais,
+        totalFraisServiceHT: calculatedTotals.totalFraisServiceHT,
+        tva: calculatedTotals.tva,
+        total: calculatedTotals.totalFacture,
+        notes,
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const gridColsClass = showMargin ? "grid-cols-12" : "grid-cols-10";
@@ -186,12 +201,13 @@ export default function FactureForm({
             name="show-margin-toggle"
             id="show-margin-toggle"
             checked={showMargin}
+            disabled={isSaving}
             onChange={(e) => {
               const checked = e.target.checked;
               setShowMargin(checked);
               if (!checked) {
                 setItems(
-                  items.map((item) => ({ ...item, fraisServiceUnitaire: 0 }))
+                  items.map((item) => ({ ...item, fraisServiceUnitaire: 0 })),
                 );
               }
             }}
@@ -215,7 +231,7 @@ export default function FactureForm({
             onChange={(e) => setFactureNumber(e.target.value)}
             placeholder="Auto-généré si vide"
             className="input"
-            disabled={!!existingFacture}
+            disabled={!!existingFacture || isSaving}
           />
         </div>
         <div>
@@ -226,6 +242,7 @@ export default function FactureForm({
             value={type}
             onChange={(e) => setType(e.target.value)}
             className="input"
+            disabled={isSaving}
           >
             <option value="facture">Facture</option>
             <option value="devis">Devis</option>
@@ -240,6 +257,7 @@ export default function FactureForm({
           <ClientSearch
             onClientSelect={handleClientSelect}
             initialName={clientName}
+            disabled={isSaving}
           />
         </div>
         <div>
@@ -252,6 +270,7 @@ export default function FactureForm({
             onChange={(e) => setClientAddress(e.target.value)}
             placeholder="Rempli automatiquement"
             className="input"
+            disabled={isSaving}
           />
         </div>
         <div>
@@ -264,6 +283,7 @@ export default function FactureForm({
             onChange={(e) => setClientICE(e.target.value)}
             placeholder="Rempli automatiquement"
             className="input"
+            disabled={isSaving}
           />
         </div>
         <div>
@@ -279,6 +299,7 @@ export default function FactureForm({
             showMonthDropdown
             showYearDropdown
             dropdownMode="select"
+            disabled={isSaving}
           />
         </div>
       </div>
@@ -318,6 +339,7 @@ export default function FactureForm({
                   e.target.style.height = `${e.target.scrollHeight}px`;
                 }}
                 required
+                disabled={isSaving}
               />
             </div>
             <div className="col-span-4 md:col-span-1">
@@ -329,6 +351,7 @@ export default function FactureForm({
                 }
                 className="input text-center"
                 required
+                disabled={isSaving}
               />
             </div>
             <div className={`col-span-8 ${priceColSpan}`}>
@@ -339,11 +362,12 @@ export default function FactureForm({
                   handleItemChange(
                     index,
                     "prixUnitaire",
-                    Number(e.target.value)
+                    Number(e.target.value),
                   )
                 }
                 className="input text-right"
                 required
+                disabled={isSaving}
               />
             </div>
             {showMargin && (
@@ -355,11 +379,12 @@ export default function FactureForm({
                     handleItemChange(
                       index,
                       "fraisServiceUnitaire",
-                      Number(e.target.value)
+                      Number(e.target.value),
                     )
                   }
                   className="input text-right"
                   required
+                  disabled={isSaving}
                 />
               </div>
             )}
@@ -375,7 +400,8 @@ export default function FactureForm({
               <button
                 type="button"
                 onClick={() => removeItem(index)}
-                className="text-red-500 hover:text-red-700 p-2"
+                className="text-red-500 hover:text-red-700 p-2 disabled:opacity-50"
+                disabled={isSaving || items.length === 1}
               >
                 <Trash2 className="w-5 h-5" />
               </button>
@@ -385,7 +411,8 @@ export default function FactureForm({
         <button
           type="button"
           onClick={addItem}
-          className="inline-flex items-center px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+          disabled={isSaving}
+          className="inline-flex items-center px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
         >
           <Plus className="w-4 h-4 mr-1" /> Ajouter un Article
         </button>
@@ -405,7 +432,7 @@ export default function FactureForm({
                     {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    }
+                    },
                   )}{" "}
                   MAD
                 </span>
@@ -420,7 +447,7 @@ export default function FactureForm({
                     {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
-                    }
+                    },
                   )}{" "}
                   MAD
                 </span>
@@ -462,6 +489,7 @@ export default function FactureForm({
           placeholder="Ajouter des notes ici..."
           className="input"
           rows={3}
+          disabled={isSaving}
         ></textarea>
       </div>
 
@@ -469,19 +497,24 @@ export default function FactureForm({
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+          disabled={isSaving}
+          className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-50"
         >
           Annuler
         </button>
         <button
           type="submit"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          disabled={isSaving}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center disabled:bg-blue-400 disabled:cursor-not-allowed"
         >
-          {existingFacture
-            ? "Modifier le Document"
-            : type === "facture"
-            ? "Créer la Facture"
-            : "Créer le Devis"}
+          {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          {isSaving
+            ? "Enregistrement..."
+            : existingFacture
+              ? "Modifier le Document"
+              : type === "facture"
+                ? "Créer la Facture"
+                : "Créer le Devis"}
         </button>
       </div>
     </form>
