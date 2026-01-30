@@ -5,6 +5,7 @@ import {
   CheckCircle,
   XCircle,
   Globe,
+  Clock,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
@@ -18,31 +19,38 @@ export default function Verification({ onSuccess }) {
     checked: false,
     valid: false,
     message: "",
+    isTrial: false,
+    expiryDate: null,
   });
 
   const handleVerify = async () => {
     // 1. VÉRIFICATION DÉFENSIVE : S'assurer que nous sommes dans Electron
-    // Correction : On vérifie aussi que la fonction spécifique 'verifyLicense' existe
     if (
       !window.electronAPI ||
       typeof window.electronAPI.verifyLicense !== "function"
     ) {
-      setVerificationStatus({
+      setVerificationStatus((prev) => ({
+        ...prev,
         checked: true,
         valid: false,
         message:
           "Erreur Critique : Pont Electron non configuré ou fonction de licence manquante. Veuillez vérifier preload.js.",
-      });
+      }));
       toast.error("Incompatibilité d'environnement détectée.");
       return;
     }
 
     setIsLoading(true);
-    setVerificationStatus({ checked: false, valid: false, message: "" });
+    setVerificationStatus({
+      checked: false,
+      valid: false,
+      message: "",
+      isTrial: false,
+      expiryDate: null,
+    });
 
     try {
       // 2. APPEL DE L'API
-      // Correction : Changement du nom de la fonction et passage d'un objet { licenseCode }
       const data = await window.electronAPI.verifyLicense({
         licenseCode: licenseCode.trim(),
       });
@@ -52,8 +60,20 @@ export default function Verification({ onSuccess }) {
           checked: true,
           valid: true,
           message: data.message,
+          isTrial: data.isTrial,
+          expiryDate: data.expiryDate,
         });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ valid: true }));
+
+        // Mise à jour du localStorage avec les informations de période d'essai
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            valid: true,
+            isTrial: data.isTrial,
+            expiryDate: data.expiryDate,
+          }),
+        );
+
         toast.success(data.message || "Application activée !");
 
         if (onSuccess) {
@@ -65,6 +85,8 @@ export default function Verification({ onSuccess }) {
           checked: true,
           valid: false,
           message: data.message || "Code de licence invalide.",
+          isTrial: false,
+          expiryDate: null,
         });
         toast.error(data.message || "Code de licence invalide.");
       }
@@ -74,6 +96,8 @@ export default function Verification({ onSuccess }) {
         checked: true,
         valid: false,
         message: `Erreur de Connexion : ${error.message}`,
+        isTrial: false,
+        expiryDate: null,
       });
       toast.error("Impossible de joindre le serveur de vérification.");
     } finally {
@@ -91,6 +115,9 @@ export default function Verification({ onSuccess }) {
       );
     }
     if (verificationStatus.valid) {
+      if (verificationStatus.isTrial) {
+        return <Clock className="w-16 h-16 text-blue-500" />;
+      }
       return (
         <CheckCircle className="w-16 h-16 text-green-600 dark:text-green-500" />
       );
@@ -101,6 +128,14 @@ export default function Verification({ onSuccess }) {
   const getStatusMessage = () => {
     if (!window.electronAPI) {
       return "Erreur d'Environnement : Cette application doit être exécutée dans son conteneur Electron pour accéder aux fonctionnalités de sécurité du système.";
+    }
+    if (verificationStatus.valid && verificationStatus.isTrial) {
+      const date = new Date(verificationStatus.expiryDate).toLocaleDateString();
+      const time = new Date(verificationStatus.expiryDate).toLocaleTimeString(
+        [],
+        { hour: "2-digit", minute: "2-digit" },
+      );
+      return `Mode Essai Actif : Votre accès expirera le ${date} à ${time}.`;
     }
     if (verificationStatus.message) {
       return verificationStatus.message;
@@ -114,14 +149,18 @@ export default function Verification({ onSuccess }) {
         <div className="flex justify-center mb-8">{getStatusIcon()}</div>
 
         <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-3 tracking-tight">
-          Activation du Système
+          {verificationStatus.valid && verificationStatus.isTrial
+            ? "Période d'Essai"
+            : "Activation du Système"}
         </h2>
 
         <p
           className={`text-sm font-medium mb-8 leading-relaxed ${
             !window.electronAPI
               ? "text-rose-600"
-              : "text-gray-500 dark:text-gray-400"
+              : verificationStatus.valid && verificationStatus.isTrial
+                ? "text-blue-600 dark:text-blue-400"
+                : "text-gray-500 dark:text-gray-400"
           }`}
         >
           {getStatusMessage()}
@@ -148,6 +187,9 @@ export default function Verification({ onSuccess }) {
                 ? "Vérification de l'Autorité..."
                 : "Activer Maintenant"}
             </button>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+              Les codes commençant par TRIAL- activent le mode d'essai
+            </p>
           </div>
         )}
 

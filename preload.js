@@ -55,10 +55,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   updateTheme: (args) => ipcRenderer.invoke("db:updateTheme", args),
 
   // --- LICENSE & SYSTEM ---
+  /**
+   * Envoie une demande de vérification de code (Trial ou Lifetime) au service Netlify.
+   */
   verifyLicense: (args) => ipcRenderer.invoke("license:verify", args),
+  /**
+   * Vérifie l'état actuel de la licence stockée localement (vérification offline).
+   */
+  checkLicenseStatus: () => ipcRenderer.invoke("license:checkStatus"),
 
   // --- NATIVE PDF ENGINE ---
   generateNativePDF: (args) => ipcRenderer.invoke("pdf:generate", args),
-
-  checkLicenseStatus: () => ipcRenderer.invoke("license:checkStatus"),
 });
