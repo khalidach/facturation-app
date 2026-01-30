@@ -22,64 +22,60 @@ function initPdfService() {
         "section",
         "header",
         "footer",
+        "html",
+        "head",
+        "body",
+        "meta",
       ]),
+      // FIX 1: Remove the XSS terminal warning
+      allowVulnerableTags: true,
       allowedAttributes: {
         ...sanitizeHtml.defaults.allowedAttributes,
-        "*": ["style", "class", "id"],
+        "*": ["style", "class", "id", "src", "charset", "name", "content"],
       },
+      // FIX 2: Allow ALL CSS properties so Tailwind and Custom CSS work
       allowedStyles: {
         "*": {
-          color: [/^#(0x)?[0-9a-f]+$/i, /^rgb\(/, /^rgba\(/, /^[a-z]+$/],
-          "background-color": [
-            /^#(0x)?[0-9a-f]+$/i,
-            /^rgb\(/,
-            /^rgba\(/,
-            /^[a-z]+$/,
-          ],
-          "text-align": [/^left$/, /^right$/, /^center$/, /^justify$/],
-          "font-size": [/^\d+(?:px|em|pt|rem|%)$/],
-          "font-weight": [/^\d+$/, /^bold$/, /^normal$/],
-          margin: [/^.*$/],
-          padding: [/^.*$/],
-          border: [/^.*$/],
-          width: [/^.*$/],
-          height: [/^.*$/],
-          display: [/^.*$/],
-          flex: [/^.*$/],
-          "flex-direction": [/^.*$/],
-          "justify-content": [/^.*$/],
-          "align-items": [/^.*$/],
-          gap: [/^.*$/],
+          "*": [/./],
         },
       },
     });
 
     const printWindow = new BrowserWindow({
       show: false,
-      webPreferences: { nodeIntegration: false, contextIsolation: true },
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
     });
-    const styledHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>@page { size: A4; margin: 0; } body { margin: 0; padding: 0; -webkit-print-color-adjust: exact; font-family: 'Inter', sans-serif; } * { box-sizing: border-box; } @media print { body { background-color: white !important; } .no-print { display: none !important; } }</style></head><body>${cleanHtml}</body></html>`;
 
     try {
+      // Use the cleaned HTML directly as it now contains the <head> and <style> from frontend
       await printWindow.loadURL(
-        `data:text/html;charset=utf-8,${encodeURIComponent(styledHtml)}`,
+        `data:text/html;charset=utf-8,${encodeURIComponent(cleanHtml)}`,
       );
+
       const pdfBuffer = await printWindow.webContents.printToPDF({
         margins: { marginType: "none" },
         pageSize: "A4",
-        printBackground: true,
+        printBackground: true, // Crucial for background colors/Tailwind
         landscape: false,
       });
+
       const { filePath } = await dialog.showSaveDialog({
         title: "Enregistrer le document PDF",
         defaultPath: path.join(app.getPath("downloads"), fileName),
         filters: [{ name: "Adobe PDF", extensions: ["pdf"] }],
       });
+
       if (filePath) {
         fs.writeFileSync(filePath, pdfBuffer);
         return { success: true, filePath };
       }
       return { success: false, reason: "Cancelled" };
+    } catch (error) {
+      console.error("PDF Generation Error:", error);
+      return { success: false, error: error.message };
     } finally {
       printWindow.close();
     }
