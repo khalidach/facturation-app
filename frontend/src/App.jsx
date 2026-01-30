@@ -37,8 +37,9 @@ export default function App() {
           typeof window.electronAPI.checkLicenseStatus === "function"
         ) {
           // 2. Request the hardware-bound status from the Main Process
-          const verified = await window.electronAPI.checkLicenseStatus();
-          setIsVerified(verified);
+          // Note: status is an object { valid: boolean, ... }
+          const status = await window.electronAPI.checkLicenseStatus();
+          setIsVerified(status && status.valid === true);
         } else {
           console.error("Critical Error: Electron API not found.");
           setIsVerified(false);
@@ -60,7 +61,7 @@ export default function App() {
       </div>
     );
 
-  // If the Main process returns false, show the verification screen
+  // If the license is not valid or was deleted (Sign Out), show the verification screen
   if (!isVerified)
     return (
       <QueryClientProvider client={queryClient}>

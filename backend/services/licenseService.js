@@ -22,53 +22,56 @@ ywIDAQAB
  */
 function getLicenseStatus() {
   try {
-    if (fs.existsSync(licensePath)) {
-      const data = JSON.parse(fs.readFileSync(licensePath, "utf8"));
-
-      // 1. Machine ID Check
-      if (data.machineId !== persistentMachineId) return { valid: false };
-
-      const now = new Date();
-
-      // 2. Anti-Clock-Rewind Check
-      if (data.lastUsage) {
-        const lastUsage = new Date(data.lastUsage);
-        if (now < lastUsage) {
-          return {
-            valid: false,
-            message:
-              "System clock manipulation detected. Please correct your date.",
-            isTrial: data.isTrial,
-          };
-        }
-      }
-
-      // 3. Expiry Check (for Trials)
-      if (data.isTrial) {
-        const expiry = new Date(data.expiryDate);
-        if (now > expiry) {
-          return {
-            valid: false,
-            message: "Trial period expired.",
-            isTrial: true,
-          };
-        }
-      }
-
-      // 4. Update Last Usage (if valid)
-      data.lastUsage = now.toISOString();
-      fs.writeFileSync(licensePath, JSON.stringify(data));
-
-      return {
-        valid: true,
-        isTrial: data.isTrial,
-        expiryDate: data.expiryDate,
-      };
+    // If the license file does not exist, the status is explicitly invalid
+    if (!fs.existsSync(licensePath)) {
+      return { valid: false };
     }
+
+    const data = JSON.parse(fs.readFileSync(licensePath, "utf8"));
+
+    // 1. Machine ID Check
+    if (data.machineId !== persistentMachineId) return { valid: false };
+
+    const now = new Date();
+
+    // 2. Anti-Clock-Rewind Check
+    if (data.lastUsage) {
+      const lastUsage = new Date(data.lastUsage);
+      if (now < lastUsage) {
+        return {
+          valid: false,
+          message:
+            "System clock manipulation detected. Please correct your date.",
+          isTrial: data.isTrial,
+        };
+      }
+    }
+
+    // 3. Expiry Check (for Trials)
+    if (data.isTrial) {
+      const expiry = new Date(data.expiryDate);
+      if (now > expiry) {
+        return {
+          valid: false,
+          message: "Trial period expired.",
+          isTrial: true,
+        };
+      }
+    }
+
+    // 4. Update Last Usage (if valid)
+    data.lastUsage = now.toISOString();
+    fs.writeFileSync(licensePath, JSON.stringify(data));
+
+    return {
+      valid: true,
+      isTrial: data.isTrial,
+      expiryDate: data.expiryDate,
+    };
   } catch (e) {
     console.error("License check error:", e);
+    return { valid: false };
   }
-  return { valid: false };
 }
 
 /**
@@ -91,11 +94,13 @@ function signOut() {
 }
 
 function initLicenseService() {
+  // Handler for checking current license status
   ipcMain.handle("license:checkStatus", () => getLicenseStatus());
 
-  // New handler for deactivation/sign-out
+  // Handler for deactivation/sign-out
   ipcMain.handle("license:signOut", () => signOut());
 
+  // Handler for verifying a new license code
   ipcMain.handle("license:verify", async (event, { licenseCode }) => {
     try {
       const res = await fetch(
@@ -137,7 +142,7 @@ function initLicenseService() {
             valid: true,
             machineId: persistentMachineId,
             activatedAt: now,
-            lastUsage: now, // Initialize lastUsage on activation
+            lastUsage: now,
             isTrial: responseData.isTrial,
             expiryDate: responseData.expiryDate,
           }),

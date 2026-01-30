@@ -56,17 +56,20 @@ export default function Settings() {
   const handleSignOut = async () => {
     if (
       window.confirm(
-        "Voulez-vous vraiment désactiver la licence sur cet appareil ? L'application se fermera ou retournera à l'écran d'activation.",
+        "Voulez-vous vraiment désactiver la licence sur cet appareil ? L'application retournera à l'écran d'activation.",
       )
     ) {
       try {
         const result = await window.electronAPI.signOut();
         if (result.success) {
+          // Clear any redundant local storage flags
           localStorage.removeItem("facturation-app-license");
+
           toast.success("Licence désactivée. Redémarrage...");
-          // Delay to allow toast to be seen before reload
+
+          // Force a hard reload to trigger the checkSecurity() logic in App.jsx
           setTimeout(() => {
-            window.location.reload();
+            window.location.href = window.location.href;
           }, 1000);
         } else {
           toast.error(result.message);
