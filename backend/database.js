@@ -135,6 +135,38 @@ const createThemeTable = `CREATE TABLE IF NOT EXISTS theme (id INTEGER PRIMARY K
 const createClientsTable = `CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, address TEXT, ice TEXT, email TEXT, phone TEXT, notes TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
 const createSuppliersTable = `CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, service_type TEXT, contact_person TEXT, email TEXT, phone TEXT, notes TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
 
+// Index Creation Statements
+const createIndexes = [
+  // Factures Indexes
+  "CREATE INDEX IF NOT EXISTS idx_factures_clientName ON factures(clientName);",
+  "CREATE INDEX IF NOT EXISTS idx_factures_date ON factures(date);",
+  "CREATE INDEX IF NOT EXISTS idx_factures_createdAt ON factures(createdAt);",
+
+  // Incomes Indexes
+  "CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes(date);",
+  "CREATE INDEX IF NOT EXISTS idx_incomes_facture_id ON incomes(facture_id);",
+  "CREATE INDEX IF NOT EXISTS idx_incomes_category ON incomes(category);",
+  "CREATE INDEX IF NOT EXISTS idx_incomes_bank_status ON incomes(in_bank, is_cashed);",
+
+  // Expenses Indexes
+  "CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);",
+  "CREATE INDEX IF NOT EXISTS idx_expenses_bc_id ON expenses(bon_de_commande_id);",
+  "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);",
+  "CREATE INDEX IF NOT EXISTS idx_expenses_bank_status ON expenses(in_bank, is_cashed);",
+
+  // Bon De Commande Indexes
+  "CREATE INDEX IF NOT EXISTS idx_bc_supplierName ON bon_de_commande(supplierName);",
+  "CREATE INDEX IF NOT EXISTS idx_bc_date ON bon_de_commande(date);",
+  "CREATE INDEX IF NOT EXISTS idx_bc_createdAt ON bon_de_commande(createdAt);",
+
+  // Contacts Indexes
+  "CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);",
+  "CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);",
+
+  // Transfers Indexes
+  "CREATE INDEX IF NOT EXISTS idx_transfers_date ON transfers(date);",
+];
+
 db.exec(createFacturesTable);
 db.exec(createIncomesTable);
 db.exec(createExpensesTable);
@@ -144,6 +176,9 @@ db.exec(createSettingsTable);
 db.exec(createThemeTable);
 db.exec(createClientsTable);
 db.exec(createSuppliersTable);
+
+// Execute Index Creation
+createIndexes.forEach((idxQuery) => db.exec(idxQuery));
 
 /**
  * SELF-HEALING: Add missing columns for detailed bank tracking
@@ -201,7 +236,7 @@ function ensureColumns() {
 
 function runMigrations() {
   ensureColumns();
-  const LATEST_VERSION = 10;
+  const LATEST_VERSION = 11; // Incremented for indexing
   try {
     const row = db
       .prepare("SELECT value FROM settings WHERE key = 'db_version'")
