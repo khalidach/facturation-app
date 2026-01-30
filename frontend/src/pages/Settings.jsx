@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import { Save } from "lucide-react";
+import { Save, LogOut } from "lucide-react";
 
 export default function Settings() {
   const queryClient = useQueryClient();
@@ -50,6 +50,33 @@ export default function Settings() {
     updateSettings(settings);
   };
 
+  /**
+   * Deactivates the local license and reloads the application.
+   */
+  const handleSignOut = async () => {
+    if (
+      window.confirm(
+        "Voulez-vous vraiment désactiver la licence sur cet appareil ? L'application se fermera ou retournera à l'écran d'activation.",
+      )
+    ) {
+      try {
+        const result = await window.electronAPI.signOut();
+        if (result.success) {
+          localStorage.removeItem("facturation-app-license");
+          toast.success("Licence désactivée. Redémarrage...");
+          // Delay to allow toast to be seen before reload
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          toast.error(result.message);
+        }
+      } catch (error) {
+        toast.error("Erreur technique lors de la désactivation.");
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -75,14 +102,24 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Paramètres
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Gérez les informations de votre entreprise et les paramètres de
-          facturation.
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Paramètres
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
+            Gérez les informations de votre entreprise et les paramètres de
+            facturation.
+          </p>
+        </div>
+
+        <button
+          onClick={handleSignOut}
+          className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 border border-red-200 transition-colors font-medium text-sm"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Désactiver la Licence
+        </button>
       </div>
 
       <form

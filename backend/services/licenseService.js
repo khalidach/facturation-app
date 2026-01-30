@@ -71,8 +71,30 @@ function getLicenseStatus() {
   return { valid: false };
 }
 
+/**
+ * Deletes the local license file to "sign out" or deactivate the app.
+ */
+function signOut() {
+  try {
+    if (fs.existsSync(licensePath)) {
+      fs.unlinkSync(licensePath);
+      return { success: true, message: "Licence désactivée localement." };
+    }
+    return { success: true, message: "Aucune licence trouvée à désactiver." };
+  } catch (e) {
+    console.error("Sign out error:", e);
+    return {
+      success: false,
+      message: "Échec de la désactivation de la licence.",
+    };
+  }
+}
+
 function initLicenseService() {
   ipcMain.handle("license:checkStatus", () => getLicenseStatus());
+
+  // New handler for deactivation/sign-out
+  ipcMain.handle("license:signOut", () => signOut());
 
   ipcMain.handle("license:verify", async (event, { licenseCode }) => {
     try {

@@ -63,6 +63,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
    * Vérifie l'état actuel de la licence stockée localement (vérification offline).
    */
   checkLicenseStatus: () => ipcRenderer.invoke("license:checkStatus"),
+  /**
+   * Supprime la licence locale pour permettre une nouvelle activation (Sign Out).
+   */
+  signOut: () => ipcRenderer.invoke("license:signOut"),
 
   // --- NATIVE PDF ENGINE ---
   generateNativePDF: (args) => ipcRenderer.invoke("pdf:generate", args),
