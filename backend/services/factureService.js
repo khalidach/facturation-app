@@ -36,9 +36,14 @@ function initFactureService(db) {
     };
   });
 
-  // Updated with Transaction Pattern for auto-numbering integrity
   ipcMain.handle("db:createFacture", (event, rawData) => {
     const validation = FactureSchema.safeParse(rawData);
+
+    if (!validation.success) {
+      console.error("Validation Error (Create):", validation.error.format());
+      throw new Error("Données de facture invalides.");
+    }
+
     const data = validation.data;
 
     return db.transaction(() => {
@@ -82,29 +87,44 @@ function initFactureService(db) {
   });
 
   ipcMain.handle("db:updateFacture", (event, { id, data: rawData }) => {
+    // Perform validation check
     const validation = FactureSchema.safeParse(rawData);
+
+    // If validation fails, return an error instead of crashing
+    if (!validation.success) {
+      console.error("Validation Error (Update):", validation.error.format());
+      throw new Error(
+        `Erreur de validation: ${JSON.stringify(validation.error.flatten().fieldErrors)}`,
+      );
+    }
+
     const data = validation.data;
-    db.prepare(
-      "UPDATE factures SET clientName=?, clientAddress=?, clientICE=?, date=?, items=?, type=?, showMargin=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?",
-    ).run(
-      data.clientName,
-      data.clientAddress,
-      data.clientICE,
-      data.date,
-      JSON.stringify(data.items),
-      data.type,
-      data.showMargin ? 1 : 0,
-      data.prixTotalHorsFrais,
-      data.totalFraisServiceHT,
-      data.tva,
-      data.total,
-      data.notes,
-      id,
-    );
-    return { id, ...data };
+
+    try {
+      db.prepare(
+        "UPDATE factures SET clientName=?, clientAddress=?, clientICE=?, date=?, items=?, type=?, showMargin=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?",
+      ).run(
+        data.clientName,
+        data.clientAddress,
+        data.clientICE,
+        data.date,
+        JSON.stringify(data.items),
+        data.type,
+        data.showMargin ? 1 : 0,
+        data.prixTotalHorsFrais,
+        data.totalFraisServiceHT,
+        data.tva,
+        data.total,
+        data.notes,
+        id,
+      );
+      return { id, ...data };
+    } catch (err) {
+      console.error("Database Update Error:", err);
+      throw err;
+    }
   });
 
-  // Updated with Transaction Pattern to ensure cleanup of incomes
   ipcMain.handle("db:deleteFacture", (event, id) => {
     db.transaction(() => {
       db.prepare("DELETE FROM incomes WHERE facture_id = ?").run(id);
@@ -113,7 +133,6 @@ function initFactureService(db) {
     return { success: true };
   });
 
-  // New: Bulk Delete handler using the Batch Transaction pattern
   ipcMain.handle("db:bulkDeleteFactures", (event, ids) => {
     const deleteFactureStmt = db.prepare("DELETE FROM factures WHERE id = ?");
     const deleteIncomesStmt = db.prepare(

@@ -45,7 +45,12 @@ const FactureSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   items: z.array(z.any()),
   type: z.enum(["facture", "devis"]),
-  showMargin: z.boolean().default(true),
+  // Update this line to handle both booleans and numbers (0/1)
+  showMargin: z.preprocess((val) => {
+    if (typeof val === "number") return val === 1;
+    if (typeof val === "string") return val === "true" || val === "1";
+    return val;
+  }, z.boolean().default(true)),
   prixTotalHorsFrais: z.coerce.number(),
   totalFraisServiceHT: z.coerce.number(),
   tva: z.coerce.number(),

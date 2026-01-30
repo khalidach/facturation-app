@@ -86,14 +86,38 @@ export default function Facturation() {
   });
 
   const { mutate: updateFacture } = useMutation({
-    mutationFn: (data) =>
-      window.electronAPI.updateFacture({ id: data.id, data }),
+    mutationFn: (mergedData) => {
+      // 1. Destructure to remove fields that the backend Schema doesn't expect
+      const {
+        id,
+        totalPaid,
+        createdAt,
+        updatedAt,
+        facture_number_int,
+        ...cleanData
+      } = mergedData;
+
+      // 2. Explicitly ensure showMargin is a boolean before sending
+      const finalData = {
+        ...cleanData,
+        showMargin: Boolean(cleanData.showMargin),
+      };
+
+      return window.electronAPI.updateFacture({
+        id: id,
+        data: finalData,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["factures"] });
       toast.success("Document mis à jour avec succès !");
       setIsModalOpen(false);
+      setEditingFacture(null);
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => {
+      console.error("Update failed:", error);
+      toast.error(`Erreur: ${error.message}`);
+    },
   });
 
   const { mutate: deleteFacture } = useMutation({
@@ -108,6 +132,7 @@ export default function Facturation() {
 
   const handleSave = (data) => {
     if (editingFacture) {
+      // Merge editingFacture (contains ID) with new data from form
       updateFacture({ ...editingFacture, ...data });
     } else {
       createFacture(data);
@@ -180,7 +205,6 @@ export default function Facturation() {
           </button>
         </div>
 
-        {/* Barre de recherche étendue */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="relative flex-1 w-full">
             <input
