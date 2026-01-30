@@ -1,7 +1,6 @@
 const { ipcMain, BrowserWindow, dialog, app } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const sanitizeHtml = require("sanitize-html");
 
 // Persistent reference to the worker window to avoid re-initialization overhead
 let sharedPrintWindow = null;
@@ -30,47 +29,13 @@ function getWorkerWindow() {
 
 function initPdfService() {
   ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
-    // Sanitize HTML to prevent XSS while allowing styles for Tailwind and CSS
-    const cleanHtml = sanitizeHtml(htmlContent, {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-        "img",
-        "style",
-        "div",
-        "span",
-        "table",
-        "thead",
-        "tbody",
-        "tr",
-        "th",
-        "td",
-        "br",
-        "hr",
-        "section",
-        "header",
-        "footer",
-        "html",
-        "head",
-        "body",
-        "meta",
-      ]),
-      allowVulnerableTags: true,
-      allowedAttributes: {
-        ...sanitizeHtml.defaults.allowedAttributes,
-        "*": ["style", "class", "id", "src", "charset", "name", "content"],
-      },
-      allowedStyles: {
-        "*": {
-          "*": [/./],
-        },
-      },
-    });
-
     const printWindow = getWorkerWindow();
 
     try {
-      // Load sanitized content directly into the reusable window
+      // Load content directly into the reusable window without sanitization
+      // to ensure all styles (Tailwind, etc.) are preserved
       await printWindow.loadURL(
-        `data:text/html;charset=utf-8,${encodeURIComponent(cleanHtml)}`,
+        `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`,
       );
 
       const pdfBuffer = await printWindow.webContents.printToPDF({
