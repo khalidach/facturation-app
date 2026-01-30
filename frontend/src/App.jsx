@@ -9,7 +9,7 @@ import Contacts from "./pages/Contacts.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Finance from "./pages/Finance.jsx";
 import Treasury from "./pages/Treasury.jsx";
-import BonDeCommande from "./pages/BonDeCommande.jsx"; // New Page
+import BonDeCommande from "./pages/BonDeCommande.jsx";
 import {
   Settings as SettingsIcon,
   FileText,
@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 
 const queryClient = new QueryClient();
-const STORAGE_KEY = "facturation-app-license";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -30,25 +29,38 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const storedLicense = localStorage.getItem(STORAGE_KEY);
-      if (storedLicense) {
-        const { valid } = JSON.parse(storedLicense);
-        if (valid) setIsVerified(true);
+    async function checkSecurity() {
+      try {
+        // 1. Verify if the environment is Electron
+        if (
+          window.electronAPI &&
+          typeof window.electronAPI.checkLicenseStatus === "function"
+        ) {
+          // 2. Request the hardware-bound status from the Main Process
+          const verified = await window.electronAPI.checkLicenseStatus();
+          setIsVerified(verified);
+        } else {
+          console.error("Critical Error: Electron API not found.");
+          setIsVerified(false);
+        }
+      } catch (e) {
+        console.error("License check failed:", e);
+        setIsVerified(false);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      console.error(e);
     }
-    setIsLoading(false);
+    checkSecurity();
   }, []);
 
   if (isLoading)
     return (
-      <div className="flex h-screen items-center justify-center">
-        Loading...
+      <div className="flex h-screen items-center justify-center bg-gray-100 dark:bg-gray-900 text-gray-500 font-bold">
+        Initialisation du système sécurisé...
       </div>
     );
 
+  // If the Main process returns false, show the verification screen
   if (!isVerified)
     return (
       <QueryClientProvider client={queryClient}>
@@ -62,7 +74,7 @@ export default function App() {
     { id: "treasury", label: "Trésorerie", icon: Landmark },
     { id: "finance", label: "Finance", icon: CircleDollarSign },
     { id: "facturation", label: "Facturation", icon: FileText },
-    { id: "bon-de-commande", label: "Bon de Commande", icon: ShoppingBag }, // New Item
+    { id: "bon-de-commande", label: "Bon de Commande", icon: ShoppingBag },
     { id: "contacts", label: "Contacts", icon: Users },
     { id: "settings", label: "Paramètres", icon: SettingsIcon },
     { id: "theme", label: "Thème", icon: Palette },

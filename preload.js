@@ -59,4 +59,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // --- NATIVE PDF ENGINE ---
   generateNativePDF: (args) => ipcRenderer.invoke("pdf:generate", args),
+
+  checkLicenseStatus: () => ipcRenderer.invoke("license:checkStatus"),
 });

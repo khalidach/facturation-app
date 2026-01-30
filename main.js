@@ -5,13 +5,15 @@ const db = require("./backend/database");
 const { machineIdSync } = require("node-machine-id");
 const sanitizeHtml = require("sanitize-html");
 const { z } = require("zod");
-const crypto = require("crypto"); // Added for signature verification
+const crypto = require("crypto");
 
 const persistentMachineId = machineIdSync({ original: true });
 const isDev = process.env.npm_lifecycle_event === "dev:electron";
 
+// Secure path for license storage (hidden in the user's app data folder)
+const licensePath = path.join(app.getPath("userData"), ".license_data");
+
 // --- SECURITY CONFIGURATION ---
-// Replace this placeholder with your actual RSA Public Key from the Netlify server
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArtJtmr/8JITF4QFJlht8
 HRqUQQRdh/ez2U9IP3+Tq6EzLii2UfXrZsCGpTeo8tVpum38DplPH4Cee7DZjJ4F
@@ -21,6 +23,20 @@ kQ936eWMJ9qp1zCPmN5m3+dTxi7uVcYEVInzi33VYyC9OlF6ceZpOnuFX+FQ2V3g
 RNTrqucENfEpMwC1ib3z2skSEqndyMMyU6cDq/PumW6Sob3sFai864m0P2u1t4Xn
 ywIDAQAB
 -----END PUBLIC KEY-----`;
+
+// Helper to check license status internally and verify hardware binding
+function getIsVerified() {
+  try {
+    if (fs.existsSync(licensePath)) {
+      const data = JSON.parse(fs.readFileSync(licensePath, "utf8"));
+      // Ensure the license is valid and bound to this specific machine ID
+      return data.valid === true && data.machineId === persistentMachineId;
+    }
+  } catch (e) {
+    console.error("License check error:", e);
+  }
+  return false;
+}
 
 // --- 1. VALIDATION SCHEMAS ---
 
@@ -38,7 +54,9 @@ const TransactionSchema = z.object({
   category: z.string().min(1).default("General"),
   contact_person: z.string().nullable().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  payment_method: z.enum(["cash", "cheque", "virement"]).default("cash"),
+  payment_method: z
+    .enum(["cash", "cheque", "virement", "versement"])
+    .default("cash"),
   is_cashed: z.boolean().default(true),
   in_bank: z.boolean().default(false),
   type: z.enum(["income", "expense"]),
@@ -114,6 +132,7 @@ ipcMain.handle("db:getDashboardStats", (event, args) => {
       .get(startDate, endDate);
     const totalIncome = incomeStats?.total || 0;
     const totalExpense = expenseStats?.total || 0;
+
     const rawIncome = db
       .prepare(
         "SELECT date, SUM(amount) as val FROM incomes WHERE date BETWEEN ? AND ? AND is_cashed = 1 GROUP BY date",
@@ -124,6 +143,7 @@ ipcMain.handle("db:getDashboardStats", (event, args) => {
         "SELECT date, SUM(amount) as val FROM expenses WHERE date BETWEEN ? AND ? AND is_cashed = 1 GROUP BY date",
       )
       .all(startDate, endDate);
+
     const dateMap = {};
     rawIncome.forEach((d) => {
       dateMap[d.date] = { date: d.date, income: d.val || 0, expense: 0 };
@@ -136,6 +156,7 @@ ipcMain.handle("db:getDashboardStats", (event, args) => {
     const chartData = Object.values(dateMap).sort((a, b) =>
       a.date.localeCompare(b.date),
     );
+
     return {
       summary: {
         income: totalIncome,
@@ -203,8 +224,6 @@ ipcMain.handle("db:createTransaction", (event, rawData) => {
 
   const data = validation.data;
   const tableName = ALLOWED_FINANCE_TABLES[data.type];
-  if (!tableName) throw new Error("Unauthorized database access attempt.");
-
   try {
     const columns = [
       "amount",
@@ -261,7 +280,6 @@ ipcMain.handle("db:createTransaction", (event, rawData) => {
     const info = stmt.run(...values);
     return { id: info.lastInsertRowid, ...data };
   } catch (error) {
-    console.error("Database Error createTransaction:", error);
     throw error;
   }
 });
@@ -270,10 +288,8 @@ ipcMain.handle("db:updateTransaction", (event, { id, data: rawData }) => {
   const validation = TransactionSchema.safeParse(rawData);
   if (!validation.success)
     throw new Error(`Update Validation Failed: ${validation.error.message}`);
-
   const data = validation.data;
   const tableName = ALLOWED_FINANCE_TABLES[data.type];
-  if (!tableName) throw new Error("Unauthorized database access attempt.");
 
   try {
     const columns = [
@@ -329,167 +345,135 @@ ipcMain.handle("db:updateTransaction", (event, { id, data: rawData }) => {
     );
     return { id, ...data };
   } catch (error) {
-    console.error("Database Error updateTransaction:", error);
     throw error;
   }
 });
 
 ipcMain.handle("db:deleteTransaction", (event, { id, type }) => {
   const tableName = ALLOWED_FINANCE_TABLES[type];
-  if (!tableName) throw new Error("Unauthorized database access attempt.");
-
   try {
     db.prepare(`DELETE FROM ${tableName} WHERE id = ?`).run(id);
     return { success: true };
   } catch (error) {
-    console.error("Database Error deleteTransaction:", error);
     throw error;
   }
 });
 
 ipcMain.handle("db:getPaymentsByFacture", (event, factureId) => {
-  try {
-    return db
-      .prepare("SELECT * FROM incomes WHERE facture_id = ? ORDER BY date DESC")
-      .all(factureId);
-  } catch (error) {
-    console.error("Error getting payments by facture:", error);
-    throw error;
-  }
+  return db
+    .prepare("SELECT * FROM incomes WHERE facture_id = ? ORDER BY date DESC")
+    .all(factureId);
 });
 
 // --- 3. TREASURY & TRANSFERS ---
 ipcMain.handle("db:getTreasuryStats", () => {
-  try {
-    const bankIncome =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM incomes WHERE in_bank = 1 AND is_cashed = 1",
-        )
-        .get().total || 0;
-    const bankExpense =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM expenses WHERE in_bank = 1 AND is_cashed = 1",
-        )
-        .get().total || 0;
-    const cashIncome =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM incomes WHERE in_bank = 0 AND is_cashed = 1",
-        )
-        .get().total || 0;
-    const cashExpense =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM expenses WHERE in_bank = 0 AND is_cashed = 1",
-        )
-        .get().total || 0;
-    const bankTransfersIn =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM transfers WHERE to_account = 'banque'",
-        )
-        .get().total || 0;
-    const bankTransfersOut =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM transfers WHERE from_account = 'banque'",
-        )
-        .get().total || 0;
-    const cashTransfersIn =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM transfers WHERE to_account = 'caisse'",
-        )
-        .get().total || 0;
-    const cashTransfersOut =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM transfers WHERE from_account = 'caisse'",
-        )
-        .get().total || 0;
-    const pendingChecks =
-      db
-        .prepare(
-          "SELECT SUM(amount) as total FROM incomes WHERE payment_method = 'cheque' AND is_cashed = 0",
-        )
-        .get().total || 0;
-    return {
-      banque: bankIncome - bankExpense + bankTransfersIn - bankTransfersOut,
-      caisse: cashIncome - cashExpense + cashTransfersIn - cashTransfersOut,
-      pendingChecks,
-    };
-  } catch (error) {
-    console.error("Error getting treasury stats:", error);
-    throw error;
-  }
+  const bankIncome =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM incomes WHERE in_bank = 1 AND is_cashed = 1",
+      )
+      .get().total || 0;
+  const bankExpense =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM expenses WHERE in_bank = 1 AND is_cashed = 1",
+      )
+      .get().total || 0;
+  const cashIncome =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM incomes WHERE in_bank = 0 AND is_cashed = 1",
+      )
+      .get().total || 0;
+  const cashExpense =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM expenses WHERE in_bank = 0 AND is_cashed = 1",
+      )
+      .get().total || 0;
+  const bankTransfersIn =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM transfers WHERE to_account = 'banque'",
+      )
+      .get().total || 0;
+  const bankTransfersOut =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM transfers WHERE from_account = 'banque'",
+      )
+      .get().total || 0;
+  const cashTransfersIn =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM transfers WHERE to_account = 'caisse'",
+      )
+      .get().total || 0;
+  const cashTransfersOut =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM transfers WHERE from_account = 'caisse'",
+      )
+      .get().total || 0;
+  const pendingChecks =
+    db
+      .prepare(
+        "SELECT SUM(amount) as total FROM incomes WHERE payment_method = 'cheque' AND is_cashed = 0",
+      )
+      .get().total || 0;
+
+  return {
+    banque: bankIncome - bankExpense + bankTransfersIn - bankTransfersOut,
+    caisse: cashIncome - cashExpense + cashTransfersIn - cashTransfersOut,
+    pendingChecks,
+  };
 });
 
 ipcMain.handle("db:createTransfer", (event, data) => {
-  try {
-    const info = db
-      .prepare(
-        "INSERT INTO transfers (amount, from_account, to_account, date, description) VALUES (?, ?, ?, ?, ?)",
-      )
-      .run(
-        data.amount,
-        data.from_account,
-        data.to_account,
-        data.date,
-        data.description,
-      );
-    return { id: info.lastInsertRowid, ...data };
-  } catch (error) {
-    console.error("Error creating transfer:", error);
-    throw error;
-  }
+  const info = db
+    .prepare(
+      "INSERT INTO transfers (amount, from_account, to_account, date, description) VALUES (?, ?, ?, ?, ?)",
+    )
+    .run(
+      data.amount,
+      data.from_account,
+      data.to_account,
+      data.date,
+      data.description,
+    );
+  return { id: info.lastInsertRowid, ...data };
 });
 
 ipcMain.handle("db:getTransfers", (event, args) => {
   const validation = PaginationSchema.safeParse(args);
-  if (!validation.success)
-    throw new Error(`Invalid arguments: ${validation.error.message}`);
   const { page, limit } = validation.data;
   const offset = (page - 1) * limit;
-  try {
-    const count = db
-      .prepare("SELECT COUNT(*) as total FROM transfers")
-      .get().total;
-    const data = db
-      .prepare(
-        "SELECT * FROM transfers ORDER BY date DESC, id DESC LIMIT ? OFFSET ?",
-      )
-      .all(limit, offset);
-    return {
-      data,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(count / limit),
-        totalCount: count,
-      },
-    };
-  } catch (error) {
-    console.error("Error getting transfers:", error);
-    throw error;
-  }
+  const count = db
+    .prepare("SELECT COUNT(*) as total FROM transfers")
+    .get().total;
+  const data = db
+    .prepare(
+      "SELECT * FROM transfers ORDER BY date DESC, id DESC LIMIT ? OFFSET ?",
+    )
+    .all(limit, offset);
+  return {
+    data,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(count / limit),
+      totalCount: count,
+    },
+  };
 });
 
 ipcMain.handle("db:deleteTransfer", (event, id) => {
-  try {
-    db.prepare("DELETE FROM transfers WHERE id = ?").run(id);
-    return { success: true };
-  } catch (error) {
-    console.error("Database Error deleteTransfer:", error);
-    throw error;
-  }
+  db.prepare("DELETE FROM transfers WHERE id = ?").run(id);
+  return { success: true };
 });
 
-// --- 4. FACTURATION (INVOICES & QUOTES) ---
+// --- 4. FACTURATION ---
 ipcMain.handle("db:getFactures", (event, args) => {
   const validation = PaginationSchema.safeParse(args);
-  if (!validation.success)
-    throw new Error(`Invalid arguments: ${validation.error.message}`);
   const { page, limit, search, sortBy } = validation.data;
   const offset = (page - 1) * limit;
   let whereClause = "";
@@ -502,35 +486,26 @@ ipcMain.handle("db:getFactures", (event, args) => {
   }
   const orderBy =
     sortBy === "oldest" ? "ORDER BY createdAt ASC" : "ORDER BY createdAt DESC";
-  try {
-    const count = db
-      .prepare(`SELECT COUNT(*) as totalCount FROM factures ${whereClause}`)
-      .get(...params);
-    const data = db
-      .prepare(
-        `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE facture_id = factures.id) as totalPaid FROM factures ${whereClause} ${orderBy} LIMIT ? OFFSET ?`,
-      )
-      .all(...params, limit, offset);
-    return {
-      data,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil((count?.totalCount || 0) / limit),
-        totalCount: count?.totalCount || 0,
-      },
-    };
-  } catch (error) {
-    console.error("Error getting factures:", error);
-    throw error;
-  }
+  const count = db
+    .prepare(`SELECT COUNT(*) as totalCount FROM factures ${whereClause}`)
+    .get(...params);
+  const data = db
+    .prepare(
+      `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE facture_id = factures.id) as totalPaid FROM factures ${whereClause} ${orderBy} LIMIT ? OFFSET ?`,
+    )
+    .all(...params, limit, offset);
+  return {
+    data,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil((count?.totalCount || 0) / limit),
+      totalCount: count?.totalCount || 0,
+    },
+  };
 });
 
 ipcMain.handle("db:createFacture", (event, rawData) => {
   const validation = FactureSchema.safeParse(rawData);
-  if (!validation.success)
-    throw new Error(
-      `Facture Validation Failed: ${JSON.stringify(validation.error.flatten().fieldErrors)}`,
-    );
   const data = validation.data;
   let { facture_number } = data;
   let newNum = null;
@@ -544,78 +519,59 @@ ipcMain.handle("db:createFacture", (event, rawData) => {
     newNum = (last.maxNum || 0) + 1;
     facture_number = `${String(newNum).padStart(3, "0")}/${year}`;
   }
-  try {
-    const stmt = db.prepare(
-      "INSERT INTO factures (facture_number, facture_number_int, clientName, clientAddress, clientICE, date, items, type, showMargin, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    );
-    const info = stmt.run(
-      facture_number,
-      newNum,
-      data.clientName,
-      data.clientAddress,
-      data.clientICE,
-      data.date,
-      JSON.stringify(data.items),
-      data.type,
-      data.showMargin ? 1 : 0,
-      data.prixTotalHorsFrais,
-      data.totalFraisServiceHT,
-      data.tva,
-      data.total,
-      data.notes,
-    );
-    return { id: info.lastInsertRowid, ...data, facture_number };
-  } catch (error) {
-    console.error("Error creating facture:", error);
-    throw error;
-  }
+  const stmt = db.prepare(
+    "INSERT INTO factures (facture_number, facture_number_int, clientName, clientAddress, clientICE, date, items, type, showMargin, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  );
+  const info = stmt.run(
+    facture_number,
+    newNum,
+    data.clientName,
+    data.clientAddress,
+    data.clientICE,
+    data.date,
+    JSON.stringify(data.items),
+    data.type,
+    data.showMargin ? 1 : 0,
+    data.prixTotalHorsFrais,
+    data.totalFraisServiceHT,
+    data.tva,
+    data.total,
+    data.notes,
+  );
+  return { id: info.lastInsertRowid, ...data, facture_number };
 });
 
 ipcMain.handle("db:updateFacture", (event, { id, data: rawData }) => {
   const validation = FactureSchema.safeParse(rawData);
-  if (!validation.success)
-    throw new Error(`Facture Update Failed: ${validation.error.message}`);
   const data = validation.data;
-  try {
-    db.prepare(
-      "UPDATE factures SET clientName=?, clientAddress=?, clientICE=?, date=?, items=?, type=?, showMargin=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?",
-    ).run(
-      data.clientName,
-      data.clientAddress,
-      data.clientICE,
-      data.date,
-      JSON.stringify(data.items),
-      data.type,
-      data.showMargin ? 1 : 0,
-      data.prixTotalHorsFrais,
-      data.totalFraisServiceHT,
-      data.tva,
-      data.total,
-      data.notes,
-      id,
-    );
-    return { id, ...data };
-  } catch (error) {
-    console.error("Error updating facture:", error);
-    throw error;
-  }
+  db.prepare(
+    "UPDATE factures SET clientName=?, clientAddress=?, clientICE=?, date=?, items=?, type=?, showMargin=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?",
+  ).run(
+    data.clientName,
+    data.clientAddress,
+    data.clientICE,
+    data.date,
+    JSON.stringify(data.items),
+    data.type,
+    data.showMargin ? 1 : 0,
+    data.prixTotalHorsFrais,
+    data.totalFraisServiceHT,
+    data.tva,
+    data.total,
+    data.notes,
+    id,
+  );
+  return { id, ...data };
 });
 
 ipcMain.handle("db:deleteFacture", (event, id) => {
-  try {
-    db.prepare("DELETE FROM factures WHERE id = ?").run(id);
-    return { success: true };
-  } catch (error) {
-    console.error("Error deleting facture:", error);
-    throw error;
-  }
+  db.prepare("DELETE FROM factures WHERE id = ?").run(id);
+  return { success: true };
 });
 
 // --- 5. BON DE COMMANDE ---
 ipcMain.handle("db:getBonDeCommandes", (event, args) => {
   const validation = PaginationSchema.safeParse(args);
-  if (!validation.success)
-    throw new Error(`Invalid arguments: ${validation.error.message}`);
   const { page, limit, search, sortBy } = validation.data;
   const offset = (page - 1) * limit;
   let where = "";
@@ -628,134 +584,91 @@ ipcMain.handle("db:getBonDeCommandes", (event, args) => {
   }
   const orderBy =
     sortBy === "oldest" ? "ORDER BY createdAt ASC" : "ORDER BY createdAt DESC";
-  try {
-    const count = db
-      .prepare(`SELECT COUNT(*) as total FROM bon_de_commande ${where}`)
-      .get(...params);
-    const data = db
-      .prepare(
-        `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid FROM bon_de_commande ${where} ${orderBy} LIMIT ? OFFSET ?`,
-      )
-      .all(...params, limit, offset);
-    return {
-      data,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil((count?.total || 0) / limit),
-        totalCount: count?.total || 0,
-      },
-    };
-  } catch (error) {
-    console.error("Error getting bon de commandes:", error);
-    throw error;
-  }
+  const count = db
+    .prepare(`SELECT COUNT(*) as total FROM bon_de_commande ${where}`)
+    .get(...params);
+  const data = db
+    .prepare(
+      `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid FROM bon_de_commande ${where} ${orderBy} LIMIT ? OFFSET ?`,
+    )
+    .all(...params, limit, offset);
+  return {
+    data,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil((count?.total || 0) / limit),
+      totalCount: count?.total || 0,
+    },
+  };
 });
 
 ipcMain.handle("db:createBonDeCommande", (event, data) => {
-  const {
-    supplierName,
-    supplierAddress,
-    supplierICE,
-    date,
-    items,
-    prixTotalHorsFrais,
-    totalFraisServiceHT,
-    tva,
-    total,
-    notes,
-    order_number: manualNum,
-  } = data;
-  let order_number = manualNum;
-  if (!manualNum || manualNum.trim() === "") {
-    const year = new Date(date).getFullYear().toString();
+  let { order_number } = data;
+  if (!order_number || order_number.trim() === "") {
+    const year = new Date(data.date).getFullYear().toString();
     const last = db
       .prepare("SELECT MAX(id) as maxId FROM bon_de_commande")
       .get();
     const nextNum = (last.maxId || 0) + 1;
     order_number = `BC-${String(nextNum).padStart(3, "0")}/${year}`;
   }
-  try {
-    const stmt = db.prepare(
-      `INSERT INTO bon_de_commande (order_number, supplierName, supplierAddress, supplierICE, date, items, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const info = stmt.run(
-      order_number,
-      supplierName,
-      supplierAddress,
-      supplierICE,
-      date,
-      JSON.stringify(items),
-      prixTotalHorsFrais,
-      totalFraisServiceHT,
-      tva,
-      total,
-      notes,
-    );
-    return { id: info.lastInsertRowid, ...data, order_number };
-  } catch (error) {
-    console.error("Error creating bon de commande:", error);
-    throw error;
-  }
+  const stmt = db.prepare(
+    `INSERT INTO bon_de_commande (order_number, supplierName, supplierAddress, supplierICE, date, items, prixTotalHorsFrais, totalFraisServiceHT, tva, total, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const info = stmt.run(
+    order_number,
+    data.supplierName,
+    data.supplierAddress,
+    data.supplierICE,
+    data.date,
+    JSON.stringify(data.items),
+    data.prixTotalHorsFrais,
+    data.totalFraisServiceHT,
+    data.tva,
+    data.total,
+    data.notes,
+  );
+  return { id: info.lastInsertRowid, ...data, order_number };
 });
 
 ipcMain.handle("db:updateBonDeCommande", (event, { id, data }) => {
-  try {
-    db.prepare(
-      `UPDATE bon_de_commande SET supplierName=?, supplierAddress=?, supplierICE=?, date=?, items=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?`,
-    ).run(
-      data.supplierName,
-      data.supplierAddress,
-      data.supplierICE,
-      data.date,
-      JSON.stringify(data.items),
-      data.prixTotalHorsFrais,
-      data.totalFraisServiceHT,
-      data.tva,
-      data.total,
-      data.notes,
-      id,
-    );
-    return { id, ...data };
-  } catch (error) {
-    console.error("Error updating bon de commande:", error);
-    throw error;
-  }
+  db.prepare(
+    `UPDATE bon_de_commande SET supplierName=?, supplierAddress=?, supplierICE=?, date=?, items=?, prixTotalHorsFrais=?, totalFraisServiceHT=?, tva=?, total=?, notes=? WHERE id=?`,
+  ).run(
+    data.supplierName,
+    data.supplierAddress,
+    data.supplierICE,
+    data.date,
+    JSON.stringify(data.items),
+    data.prixTotalHorsFrais,
+    data.totalFraisServiceHT,
+    data.tva,
+    data.total,
+    data.notes,
+    id,
+  );
+  return { id, ...data };
 });
 
 ipcMain.handle("db:deleteBonDeCommande", (event, id) => {
-  try {
-    db.prepare("DELETE FROM bon_de_commande WHERE id = ?").run(id);
-    return { success: true };
-  } catch (error) {
-    console.error("Error deleting bon de commande:", error);
-    throw error;
-  }
+  db.prepare("DELETE FROM bon_de_commande WHERE id = ?").run(id);
+  return { success: true };
 });
 
 ipcMain.handle("db:getPaymentsByBonDeCommande", (event, bcId) => {
-  try {
-    return db
-      .prepare(
-        "SELECT * FROM expenses WHERE bon_de_commande_id = ? ORDER BY date DESC",
-      )
-      .all(bcId);
-  } catch (error) {
-    console.error("Error getting payments by BC:", error);
-    throw error;
-  }
+  return db
+    .prepare(
+      "SELECT * FROM expenses WHERE bon_de_commande_id = ? ORDER BY date DESC",
+    )
+    .all(bcId);
 });
 
 ipcMain.handle("db:getBonDeCommandeById", (event, id) => {
-  try {
-    return db
-      .prepare(
-        `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid FROM bon_de_commande WHERE id = ?`,
-      )
-      .get(id);
-  } catch (error) {
-    console.error("Error getting BC by id:", error);
-    throw error;
-  }
+  return db
+    .prepare(
+      `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid FROM bon_de_commande WHERE id = ?`,
+    )
+    .get(id);
 });
 
 // --- 6. CONTACTS ---
@@ -912,6 +825,10 @@ ipcMain.handle("db:updateTheme", (event, { styles }) => {
 });
 
 // --- 8. SECURE LICENSE VERIFICATION ---
+ipcMain.handle("license:checkStatus", () => {
+  return getIsVerified(); // Hardware-bound secure check
+});
+
 ipcMain.handle("license:verify", async (event, { licenseCode }) => {
   try {
     const res = await fetch(
@@ -925,15 +842,12 @@ ipcMain.handle("license:verify", async (event, { licenseCode }) => {
 
     const responseData = await res.json();
 
-    // Digital Signature Verification logic
     if (responseData.signature) {
       const verify = crypto.createVerify("SHA256");
-
-      // Reconstruct the payload string to verify against the signature
       const verificationPayload = JSON.stringify({
         success: responseData.success,
         message: responseData.message,
-        machineId: persistentMachineId, // Hardware binding
+        machineId: persistentMachineId,
       });
 
       verify.update(verificationPayload);
@@ -946,22 +860,27 @@ ipcMain.handle("license:verify", async (event, { licenseCode }) => {
       if (!isVerified) {
         return {
           success: false,
-          message:
-            "Security Error: The server response signature is invalid. Verification failed.",
+          message: "Security Error: Response signature invalid.",
         };
       }
     } else if (!isDev) {
-      // In production, unsigned responses are rejected
-      return {
-        success: false,
-        message:
-          "Security Error: Missing cryptographic signature from verification server.",
-      };
+      return { success: false, message: "Security Error: Missing signature." };
+    }
+
+    if (responseData.success) {
+      // PERSIST ACTIVATION TO SECURE FILE
+      fs.writeFileSync(
+        licensePath,
+        JSON.stringify({
+          valid: true,
+          machineId: persistentMachineId,
+          activatedAt: new Date().toISOString(),
+        }),
+      );
     }
 
     return responseData;
   } catch (e) {
-    console.error("Verification error:", e);
     throw new Error("Verification service unreachable.");
   }
 });
@@ -1042,10 +961,7 @@ ipcMain.handle("pdf:generate", async (event, { htmlContent, fileName }) => {
       fs.writeFileSync(filePath, pdfBuffer);
       return { success: true, filePath };
     }
-    return { success: false, reason: "Cancelled by user" };
-  } catch (error) {
-    console.error("Native PDF Generation Error:", error);
-    throw error;
+    return { success: false, reason: "Cancelled" };
   } finally {
     printWindow.close();
   }
