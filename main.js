@@ -1,7 +1,8 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 const db = require("./backend/database");
 const { initServices } = require("./backend/services");
+const { exportFinancialAnalysis } = require("./backend/services/exportService");
 
 const isDev = process.env.npm_lifecycle_event === "dev:electron";
 
@@ -16,8 +17,10 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
   mainWindow.maximize();
   mainWindow.show();
+
   const startUrl = isDev
     ? "http://localhost:5174"
     : `file://${path.join(__dirname, "frontend/dist/index.html")}`;
@@ -25,9 +28,22 @@ function createWindow() {
   mainWindow.loadURL(startUrl);
 }
 
+// IPC Handler for Excel Export
+// This is placed here because it requires access to the Electron 'dialog'
+// module which is best handled in the main process.
+ipcMain.handle("export-analysis-excel", async (event, { year, months }) => {
+  try {
+    return await exportFinancialAnalysis(year, months);
+  } catch (error) {
+    console.error("Export Error in Main Process:", error);
+    throw error;
+  }
+});
+
 app.whenReady().then(() => {
-  // Initialize all modularized IPC handlers
+  // Initialize all modularized IPC handlers (Factures, Clients, Finance, etc.)
   initServices(db);
+
   createWindow();
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp,
   TrendingDown,
@@ -9,10 +9,13 @@ import {
   Calendar,
   RefreshCw,
   Zap,
+  FileSpreadsheet, // Icon for the export button
 } from "lucide-react";
+import ExportAnalysisModal from "../components/dashboard/ExportAnalysisModal";
 
 export default function Dashboard() {
   const [range, setRange] = useState("month");
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   // Helper to calculate date ranges for the backend query
   const getDates = () => {
@@ -129,7 +132,7 @@ export default function Dashboard() {
     if (!data || data.length === 0) return "";
     const maxVal = Math.max(
       ...data.map((d) => Math.max(d.income || 0, d.expense || 0, 100)),
-      1
+      1,
     );
     const stepX = width / Math.max(data.length - 1, 1);
     let path = `M 0 ${height - ((data[0][type] || 0) / maxVal) * height}`;
@@ -163,20 +166,31 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex bg-white/50 dark:bg-gray-800/50 backdrop-blur-md border rounded-2xl p-1.5">
-          {["day", "week", "month", "year"].map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={`px-6 py-2 text-sm font-bold rounded-xl capitalize transition-all ${
-                range === r
-                  ? "bg-blue-600 text-white shadow-lg"
-                  : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-              }`}
-            >
-              {rangeLabels[r]}
-            </button>
-          ))}
+        <div className="flex items-center gap-4">
+          {/* New Export Button */}
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg hover:shadow-emerald-500/20 active:scale-95"
+          >
+            <FileSpreadsheet className="w-5 h-5" />
+            <span>Exporter l'Analyse</span>
+          </button>
+
+          <div className="flex bg-white/50 dark:bg-gray-800/50 backdrop-blur-md border rounded-2xl p-1.5">
+            {["day", "week", "month", "year"].map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={`px-6 py-2 text-sm font-bold rounded-xl capitalize transition-all ${
+                  range === r
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
+              >
+                {rangeLabels[r]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -196,8 +210,8 @@ export default function Dashboard() {
                   card.color === "blue"
                     ? "bg-blue-50 dark:bg-blue-900/20"
                     : card.color === "rose"
-                    ? "bg-rose-50 dark:bg-rose-900/20"
-                    : "bg-emerald-50 dark:bg-emerald-900/20"
+                      ? "bg-rose-50 dark:bg-rose-900/20"
+                      : "bg-emerald-50 dark:bg-emerald-900/20"
                 }`}
               >
                 <card.icon
@@ -205,8 +219,8 @@ export default function Dashboard() {
                     card.color === "blue"
                       ? "text-blue-600"
                       : card.color === "rose"
-                      ? "text-rose-600"
-                      : "text-emerald-600"
+                        ? "text-rose-600"
+                        : "text-emerald-600"
                   }`}
                 />
               </div>
@@ -306,8 +320,8 @@ export default function Dashboard() {
                   Number(margin) > 10
                     ? "bg-emerald-400"
                     : Number(margin) > 0
-                    ? "bg-blue-400"
-                    : "bg-rose-400"
+                      ? "bg-blue-400"
+                      : "bg-rose-400"
                 }`}
               />
             </div>
@@ -376,6 +390,12 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Export Modal Component */}
+      <ExportAnalysisModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+      />
     </div>
   );
 }

@@ -70,4 +70,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // --- NATIVE PDF ENGINE ---
   generateNativePDF: (args) => ipcRenderer.invoke("pdf:generate", args),
+
+  exportAnalysisExcel: (data) =>
+    ipcRenderer.invoke("export-analysis-excel", data),
 });
