@@ -28,30 +28,44 @@ export default function App() {
   const [isVerified, setIsVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function checkSecurity() {
-      try {
-        // 1. Verify if the environment is Electron
-        if (
-          window.electronAPI &&
-          typeof window.electronAPI.checkLicenseStatus === "function"
-        ) {
-          // 2. Request the hardware-bound status from the Main Process
-          // Note: status is an object { valid: boolean, ... }
-          const status = await window.electronAPI.checkLicenseStatus();
-          setIsVerified(status && status.valid === true);
-        } else {
-          console.error("Critical Error: Electron API not found.");
-          setIsVerified(false);
-        }
-      } catch (e) {
-        console.error("License check failed:", e);
+  // Define the check as a reusable function
+  const checkSecurity = async () => {
+    try {
+      if (
+        window.electronAPI &&
+        typeof window.electronAPI.checkLicenseStatus === "function"
+      ) {
+        const status = await window.electronAPI.checkLicenseStatus();
+        const valid = status && status.valid === true;
+
+        // If the status changed from valid to invalid, update the state
+        setIsVerified(valid);
+        return valid;
+      } else {
+        console.error("Critical Error: Electron API not found.");
         setIsVerified(false);
-      } finally {
-        setIsLoading(false);
+        return false;
       }
+    } catch (e) {
+      console.error("License check failed:", e);
+      setIsVerified(false);
+      return false;
     }
-    checkSecurity();
+  };
+
+  useEffect(() => {
+    async function initSecurity() {
+      await checkSecurity();
+      setIsLoading(false);
+    }
+    initSecurity();
+
+    // BACKGROUND HEARTBEAT: Re-verify every 15 minutes (900,000 ms)
+    const heartbeatInterval = setInterval(() => {
+      checkSecurity();
+    }, 900000);
+
+    return () => clearInterval(heartbeatInterval);
   }, []);
 
   if (isLoading)
@@ -61,7 +75,6 @@ export default function App() {
       </div>
     );
 
-  // If the license is not valid or was deleted (Sign Out), show the verification screen
   if (!isVerified)
     return (
       <QueryClientProvider client={queryClient}>
