@@ -134,8 +134,11 @@ export default function PaymentManager({ facture }) {
     const inputAmount = parseFloat(formData.amount);
     if (isNaN(inputAmount) || inputAmount <= 0)
       return toast.error("Montant invalide");
+
+    // Calcul de la limite autorisée (solde restant + montant actuel si on modifie un paiement existant)
     const currentLimit =
       remaining + (editingPayment ? editingPayment.amount : 0);
+
     if (inputAmount > currentLimit + 0.01) {
       return toast.error(
         `Le paiement ne peut pas dépasser le montant restant (${currentLimit.toLocaleString()} MAD)`,

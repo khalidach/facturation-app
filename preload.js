@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   createFacture: (data) => ipcRenderer.invoke("db:createFacture", data),
   updateFacture: (args) => ipcRenderer.invoke("db:updateFacture", args),
   deleteFacture: (id) => ipcRenderer.invoke("db:deleteFacture", id),
+  // Updated: Added to enable balance verification in Finance page
+  getFactureById: (id) => ipcRenderer.invoke("db:getFactureById", id),
 
   // --- BON DE COMMANDE (PURCHASE ORDERS) ---
   getBonDeCommandes: (args) => ipcRenderer.invoke("db:getBonDeCommandes", args),

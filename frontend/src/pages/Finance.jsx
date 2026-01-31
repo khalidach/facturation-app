@@ -1,5 +1,3 @@
-// frontend/src/pages/Finance.jsx
-
 import React, { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -113,6 +111,7 @@ export default function Finance() {
     account_sender: "",
     name_sender: "",
     bon_de_commande_id: null,
+    facture_id: null,
   });
 
   const { data: linkedBC } = useQuery({
@@ -120,6 +119,12 @@ export default function Finance() {
     queryFn: () =>
       window.electronAPI.getBonDeCommandeById(formData.bon_de_commande_id),
     enabled: !!formData.bon_de_commande_id && isModalOpen,
+  });
+
+  const { data: linkedFacture } = useQuery({
+    queryKey: ["facture-details", formData.facture_id],
+    queryFn: () => window.electronAPI.getFactureById(formData.facture_id),
+    enabled: !!formData.facture_id && isModalOpen,
   });
 
   useEffect(() => {
@@ -255,6 +260,10 @@ export default function Finance() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const inputAmount = parseFloat(formData.amount);
+    if (isNaN(inputAmount) || inputAmount <= 0)
+      return toast.error("Montant invalide");
+
+    // Enforce balance limit for Linked Purchase Orders
     if (formData.bon_de_commande_id && linkedBC) {
       const currentLimit =
         linkedBC.total -
@@ -262,9 +271,22 @@ export default function Finance() {
         (editingTx ? editingTx.amount : 0);
       if (inputAmount > currentLimit + 0.01)
         return toast.error(
-          `Le montant dépasse le solde restant (${currentLimit.toLocaleString()} MAD)`,
+          `Le montant dépasse le solde restant du BC (${currentLimit.toLocaleString()} MAD)`,
         );
     }
+
+    // Enforce balance limit for Linked Invoices
+    if (formData.facture_id && linkedFacture) {
+      const currentLimit =
+        linkedFacture.total -
+        linkedFacture.totalPaid +
+        (editingTx ? editingTx.amount : 0);
+      if (inputAmount > currentLimit + 0.01)
+        return toast.error(
+          `Le montant dépasse le solde restant de la facture (${currentLimit.toLocaleString()} MAD)`,
+        );
+    }
+
     saveTx(formData);
   };
 

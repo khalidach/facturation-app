@@ -132,11 +132,13 @@ export default function BonDeCommandePaymentManager({ order }) {
     if (isNaN(inputAmount) || inputAmount <= 0)
       return toast.error("Montant invalide");
 
+    // Calcul de la limite autorisée (solde restant + montant actuel si on modifie un paiement existant)
     const currentLimit =
       remaining + (editingPayment ? editingPayment.amount : 0);
+
     if (inputAmount > currentLimit + 0.01) {
       return toast.error(
-        `Le montant dépasse le solde restant (${currentLimit.toLocaleString()} MAD)`,
+        `Le montant dépasse le solde restant à payer (${currentLimit.toLocaleString()} MAD)`,
       );
     }
     savePayment(formData);
@@ -251,7 +253,6 @@ export default function BonDeCommandePaymentManager({ order }) {
                   } else if (
                     ["virement", "versement", "cheque"].includes(method)
                   ) {
-                    // For cheques, we now force in_bank to true
                     updates.in_bank = true;
                     updates.is_cashed = true;
                   }
@@ -392,7 +393,6 @@ export default function BonDeCommandePaymentManager({ order }) {
                 </div>
               </div>
 
-              {/* Simplified Status for Cheque: Just Cashed/Not Cashed */}
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase text-gray-400 ml-1">
                   Statut du Chèque

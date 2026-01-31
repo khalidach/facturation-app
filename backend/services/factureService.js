@@ -87,10 +87,8 @@ function initFactureService(db) {
   });
 
   ipcMain.handle("db:updateFacture", (event, { id, data: rawData }) => {
-    // Perform validation check
     const validation = FactureSchema.safeParse(rawData);
 
-    // If validation fails, return an error instead of crashing
     if (!validation.success) {
       console.error("Validation Error (Update):", validation.error.format());
       throw new Error(
@@ -146,6 +144,15 @@ function initFactureService(db) {
       }
     })();
     return { success: true };
+  });
+
+  // Fetch a specific invoice with its current payment status for balance validation
+  ipcMain.handle("db:getFactureById", (event, id) => {
+    return db
+      .prepare(
+        `SELECT *, (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE facture_id = factures.id) as totalPaid FROM factures WHERE id = ?`,
+      )
+      .get(id);
   });
 }
 
