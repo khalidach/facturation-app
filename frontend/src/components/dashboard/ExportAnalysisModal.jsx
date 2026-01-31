@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   ArrowRight,
+  AlertCircle,
 } from "lucide-react";
 
 const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
@@ -35,6 +36,7 @@ const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
     { id: 11, name: "Décembre" },
   ];
 
+  // Restricts to current year and previous 5 years
   const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
   useEffect(() => {
@@ -50,7 +52,6 @@ const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      // Pass start and end details to the parent
       await onExport({
         start: { year: startYear, month: startMonth },
         end: { year: endYear, month: endMonth },
@@ -63,10 +64,19 @@ const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
     }
   };
 
-  // Validation: Ensure end date is not before start date
-  const isValidRange = () => {
-    if (endYear > startYear) return true;
-    if (endYear === startYear && endMonth >= startMonth) return true;
+  // Helper to calculate month difference
+  const getMonthDiff = () => {
+    return endYear * 12 + endMonth - (startYear * 12 + startMonth);
+  };
+
+  const isRangeValid = () => {
+    const diff = getMonthDiff();
+    return diff >= 0 && diff < 12; // 0 to 11 months difference = max 12 months total
+  };
+
+  const isFutureDate = (year, month) => {
+    if (year > currentYear) return true;
+    if (year === currentYear && month > currentMonth) return true;
     return false;
   };
 
@@ -110,7 +120,7 @@ const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
                 Exporter l'Analyse
               </h2>
               <p className="text-sm text-gray-500">
-                Sélectionnez la plage de dates
+                Sélectionnez la plage de dates (Max 12 mois)
               </p>
             </div>
           </div>
@@ -134,14 +144,25 @@ const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
               className="p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               {months.map((m) => (
-                <option key={m.id} value={m.id}>
+                <option
+                  key={m.id}
+                  value={m.id}
+                  disabled={isFutureDate(startYear, m.id)}
+                >
                   {m.name}
                 </option>
               ))}
             </select>
             <select
               value={startYear}
-              onChange={(e) => setStartYear(parseInt(e.target.value))}
+              onChange={(e) => {
+                const newYear = parseInt(e.target.value);
+                setStartYear(newYear);
+                // Reset month if the selected year makes the current month selection future
+                if (isFutureDate(newYear, startMonth)) {
+                  setStartMonth(currentMonth);
+                }
+              }}
               className="p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               {yearOptions.map((y) => (
@@ -169,14 +190,24 @@ const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
               className="p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               {months.map((m) => (
-                <option key={m.id} value={m.id}>
+                <option
+                  key={m.id}
+                  value={m.id}
+                  disabled={isFutureDate(endYear, m.id)}
+                >
                   {m.name}
                 </option>
               ))}
             </select>
             <select
               value={endYear}
-              onChange={(e) => setEndYear(parseInt(e.target.value))}
+              onChange={(e) => {
+                const newYear = parseInt(e.target.value);
+                setEndYear(newYear);
+                if (isFutureDate(newYear, endMonth)) {
+                  setEndMonth(currentMonth);
+                }
+              }}
               className="p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               {yearOptions.map((y) => (
@@ -188,11 +219,21 @@ const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
           </div>
         </div>
 
-        {!isValidRange() && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs">
-            La date de fin ne peut pas être antérieure à la date de début.
-          </div>
-        )}
+        {/* Error Messages */}
+        <div className="space-y-2 mb-4">
+          {getMonthDiff() < 0 && (
+            <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              La date de fin ne peut pas être antérieure à la date de début.
+            </div>
+          )}
+          {getMonthDiff() >= 12 && (
+            <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl text-amber-600 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              La période maximale autorisée est de 12 mois.
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-3 pt-5 border-t border-gray-100">
           <button
@@ -203,9 +244,9 @@ const ExportAnalysisModal = ({ isOpen, onClose, onExport }) => {
           </button>
           <button
             onClick={handleExport}
-            disabled={isExporting || !isValidRange()}
-            className={`flex-[2] px-4 py-3 rounded-2xl font-bold text-white shadow-xl ${
-              isExporting || !isValidRange()
+            disabled={isExporting || !isRangeValid()}
+            className={`flex-[2] px-4 py-3 rounded-2xl font-bold text-white shadow-xl transition-all ${
+              isExporting || !isRangeValid()
                 ? "bg-gray-300 shadow-none cursor-not-allowed"
                 : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
             }`}
