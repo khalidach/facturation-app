@@ -18,8 +18,8 @@ export default function FacturePDF({ facture, themeStyles }) {
   });
 
   const { data: savedTheme } = useQuery({
-    queryKey: ["theme"],
-    queryFn: window.electronAPI.getTheme,
+    queryKey: ["theme", "facture"],
+    queryFn: () => window.electronAPI.getTheme("facture"),
     enabled: !themeStyles,
   });
 

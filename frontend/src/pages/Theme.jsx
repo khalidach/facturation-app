@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
-import { Save, Palette, RefreshCw } from "lucide-react";
+import { Save, Palette, RefreshCw, FileText, ShoppingBag } from "lucide-react";
 import FacturePDF from "../components/facturation/FacturePDF.jsx";
+import BonDeCommandePDF from "../components/BonCommande/BonDeCommandePDF.jsx";
 import ThemeEditor from "../components/theme/ThemeEditor.jsx";
 
 // Structure des styles par défaut
@@ -10,7 +11,6 @@ const initialStyles = {
   header: {
     container: {
       backgroundColor: "#FFFFFF",
-      padding: "40px",
       borderBottom: "1px solid #EEE",
     },
     logo: { width: "80px", height: "auto" },
@@ -91,7 +91,7 @@ const initialStyles = {
   },
 };
 
-// Un exemple de facture pour prévisualiser le thème
+// Exemple Facture
 const sampleFacture = {
   type: "facture",
   facture_number: "2024-001",
@@ -122,18 +122,44 @@ const sampleFacture = {
   showMargin: true,
 };
 
+// Exemple Bon de Commande
+const sampleOrder = {
+  order_number: "BC-2024-001",
+  date: new Date().toISOString().split("T")[0],
+  supplierName: "Fournisseur Example SARL",
+  supplierAddress: "Zone Industrielle, 20000 Casablanca",
+  supplierICE: "99887766554433",
+  items: JSON.stringify([
+    {
+      description: "MacBook Pro M3 Max",
+      quantity: 2,
+      prixUnitaire: 35000,
+      total: 70000,
+    },
+    {
+      description: "Écran 4K Dell UltraSharp",
+      quantity: 4,
+      prixUnitaire: 4500,
+      total: 18000,
+    },
+  ]),
+  total: 88000,
+  notes: "Livraison urgente avant la fin du mois.",
+};
+
 export default function Theme() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("facture"); // 'facture' | 'bon_de_commande'
   const [styles, setStyles] = useState(initialStyles);
 
   const { data: themeData, isLoading } = useQuery({
-    queryKey: ["theme"],
-    queryFn: window.electronAPI.getTheme,
+    queryKey: ["theme", activeTab],
+    queryFn: () => window.electronAPI.getTheme(activeTab),
   });
 
   useEffect(() => {
     if (themeData && themeData.styles) {
-      // Fusion profonde des styles enregistrés avec les styles initiaux
+      // Fusion profonde
       const deepMerge = (target, source) => {
         const output = { ...target };
         if (
@@ -157,15 +183,21 @@ export default function Theme() {
         return output;
       };
       setStyles(deepMerge(initialStyles, themeData.styles));
+    } else {
+      setStyles(initialStyles);
     }
   }, [themeData]);
 
   const { mutate: updateTheme, isPending } = useMutation({
     mutationFn: (newStyles) =>
-      window.electronAPI.updateTheme({ styles: newStyles }),
+      window.electronAPI.updateTheme({ type: activeTab, styles: newStyles }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["theme"] });
-      toast.success("Thème enregistré avec succès !");
+      queryClient.invalidateQueries({ queryKey: ["theme", activeTab] });
+      toast.success(
+        `Thème ${
+          activeTab === "facture" ? "Facture" : "Bon de Commande"
+        } enregistré !`,
+      );
     },
     onError: (error) => {
       toast.error(error.message || "Échec de l'enregistrement du thème.");
@@ -180,18 +212,15 @@ export default function Theme() {
         const path = element.split("_");
         let target = newStyles[section];
 
-        // Parcourir jusqu'au parent de l'élément cible
         for (let i = 0; i < path.length - 1; i++) {
           if (!target[path[i]]) target[path[i]] = {};
           target = target[path[i]];
         }
 
         const finalKey = path[path.length - 1];
-
         if (!target[finalKey]) {
           target[finalKey] = {};
         }
-
         target[finalKey][property] = value;
       } else {
         newStyles[section][property] = value;
@@ -205,24 +234,11 @@ export default function Theme() {
     updateTheme(styles);
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-gray-100 dark:bg-gray-900">
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="h-10 w-10 animate-spin text-blue-600" />
-          <p className="font-medium text-gray-500 italic">
-            Chargement de l'éditeur...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* Panneau gauche : Éditeur */}
-      <aside className="w-1/3 bg-white dark:bg-gray-800 p-6 overflow-y-auto shadow-lg">
-        <div className="flex items-center justify-between mb-6">
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Tab Switcher */}
+      <div className="bg-white border-b px-6 pt-4">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <Palette className="w-8 h-8 mr-3 text-blue-600" />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -239,15 +255,66 @@ export default function Theme() {
           </button>
         </div>
 
-        <ThemeEditor styles={styles} onStyleChange={handleStyleChange} />
-      </aside>
-
-      {/* Panneau droit : Prévisualisation en direct */}
-      <main className="flex-1 bg-gray-200 dark:bg-gray-900 p-8 overflow-y-auto">
-        <div className="w-[210mm] min-h-[297mm] mx-auto shadow-2xl">
-          <FacturePDF facture={sampleFacture} themeStyles={styles} />
+        <div className="flex space-x-6">
+          <button
+            onClick={() => setActiveTab("facture")}
+            className={`flex items-center pb-3 border-b-2 font-medium transition-colors ${
+              activeTab === "facture"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <FileText className="w-5 h-5 mr-2" />
+            Thème Facture
+          </button>
+          <button
+            onClick={() => setActiveTab("bon_de_commande")}
+            className={`flex items-center pb-3 border-b-2 font-medium transition-colors ${
+              activeTab === "bon_de_commande"
+                ? "border-green-600 text-green-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <ShoppingBag className="w-5 h-5 mr-2" />
+            Thème Bon de Commande
+          </button>
         </div>
-      </main>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        {isLoading ? (
+          <div className="flex flex-1 items-center justify-center bg-gray-100 dark:bg-gray-900">
+            <div className="flex flex-col items-center gap-4">
+              <RefreshCw className="h-10 w-10 animate-spin text-blue-600" />
+              <p className="font-medium text-gray-500 italic">
+                Chargement de l'éditeur...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Panneau gauche : Éditeur */}
+            <aside className="w-1/3 bg-white dark:bg-gray-800 p-6 overflow-y-auto shadow-lg border-r">
+              <ThemeEditor
+                styles={styles}
+                onStyleChange={handleStyleChange}
+                type={activeTab}
+              />
+            </aside>
+
+            {/* Panneau droit : Prévisualisation en direct */}
+            <main className="flex-1 bg-gray-200 dark:bg-gray-900 p-8 overflow-y-auto">
+              <div className="w-[210mm] min-h-[297mm] mx-auto shadow-2xl transform scale-90 origin-top">
+                {activeTab === "facture" ? (
+                  <FacturePDF facture={sampleFacture} themeStyles={styles} />
+                ) : (
+                  <BonDeCommandePDF order={sampleOrder} themeStyles={styles} />
+                )}
+              </div>
+            </main>
+          </>
+        )}
+      </div>
     </div>
   );
 }

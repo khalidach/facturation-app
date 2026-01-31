@@ -23,7 +23,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   createFacture: (data) => ipcRenderer.invoke("db:createFacture", data),
   updateFacture: (args) => ipcRenderer.invoke("db:updateFacture", args),
   deleteFacture: (id) => ipcRenderer.invoke("db:deleteFacture", id),
-  // Updated: Added to enable balance verification in Finance page
   getFactureById: (id) => ipcRenderer.invoke("db:getFactureById", id),
 
   // --- BON DE COMMANDE (PURCHASE ORDERS) ---
@@ -53,21 +52,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getSettings: () => ipcRenderer.invoke("db:getSettings"),
   updateSettings: (settings) =>
     ipcRenderer.invoke("db:updateSettings", settings),
-  getTheme: () => ipcRenderer.invoke("db:getTheme"),
+
+  // Updated signatures
+  getTheme: (type) => ipcRenderer.invoke("db:getTheme", type),
   updateTheme: (args) => ipcRenderer.invoke("db:updateTheme", args),
 
   // --- LICENSE & SYSTEM ---
-  /**
-   * Envoie une demande de vérification de code (Trial ou Lifetime) au service Netlify.
-   */
   verifyLicense: (args) => ipcRenderer.invoke("license:verify", args),
-  /**
-   * Vérifie l'état actuel de la licence stockée localement (vérification offline).
-   */
   checkLicenseStatus: () => ipcRenderer.invoke("license:checkStatus"),
-  /**
-   * Supprime la licence locale pour permettre une nouvelle activation (Sign Out).
-   */
   signOut: () => ipcRenderer.invoke("license:signOut"),
 
   // --- NATIVE PDF ENGINE ---

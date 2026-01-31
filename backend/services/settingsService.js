@@ -19,13 +19,18 @@ function initSettingsService(db) {
     return { success: true };
   });
 
-  ipcMain.handle("db:getTheme", () => {
-    const row = db.prepare("SELECT styles FROM theme WHERE id = 1").get();
+  // Updated to accept type (facture = id 1, bon_de_commande = id 2)
+  ipcMain.handle("db:getTheme", (event, type = "facture") => {
+    const id = type === "bon_de_commande" ? 2 : 1;
+    const row = db.prepare("SELECT styles FROM theme WHERE id = ?").get(id);
     return { styles: row?.styles ? JSON.parse(row.styles) : {} };
   });
 
-  ipcMain.handle("db:updateTheme", (event, { styles }) => {
-    db.prepare("INSERT OR REPLACE INTO theme (id, styles) VALUES (1, ?)").run(
+  // Updated to accept type
+  ipcMain.handle("db:updateTheme", (event, { type, styles }) => {
+    const id = type === "bon_de_commande" ? 2 : 1;
+    db.prepare("INSERT OR REPLACE INTO theme (id, styles) VALUES (?, ?)").run(
+      id,
       JSON.stringify(styles),
     );
     return { success: true };

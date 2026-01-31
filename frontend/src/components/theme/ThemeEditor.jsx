@@ -1,27 +1,31 @@
 import React, { useState } from "react";
 import StyleControls from "./StyleControls";
 
-const themeStructure = {
+const getThemeStructure = (type) => ({
   header: {
     label: "En-tête",
     elements: {
       container: "Conteneur Principal",
       logo: "Logo",
       agencyName: "Nom de l'Agence",
-      factureType: "Type de Document (Facture/Devis)",
+      factureType: "Type de Document",
       factureNumber: "Numéro de Document",
       date: "Date",
-      ice: "ICE",
+      ice: "ICE", // Available in Facture, might be hidden in BC but keep for consistency
     },
   },
   body: {
     label: "Corps",
     elements: {
       container: "Conteneur Principal",
-      clientInfo_container: "Boîte Infos Client",
-      clientInfo_clientName: "Nom du Client",
-      clientInfo_clientAddress: "Adresse du Client",
-      clientInfo_clientICE: "ICE du Client",
+      clientInfo_container:
+        type === "bon_de_commande"
+          ? "Boîte Infos Fournisseur"
+          : "Boîte Infos Client",
+      clientInfo_clientName:
+        type === "bon_de_commande" ? "Nom du Fournisseur" : "Nom du Client",
+      clientInfo_clientAddress: "Adresse",
+      clientInfo_clientICE: "ICE",
       table_container: "Conteneur Tableau",
       table_header: "En-tête Tableau",
       table_row: "Ligne Tableau",
@@ -29,11 +33,11 @@ const themeStructure = {
       totals_container: "Conteneur Section Totaux",
       totals_row: "Ligne Totaux",
       totals_totalRow: "Ligne Total Général",
-      totals_label: "Libellé Total (ex: 'TVA')",
-      totals_value: "Valeur Totale (ex: '120.00 MAD')",
+      totals_label: "Libellé Total",
+      totals_value: "Valeur Totale",
       totalInWords_container: "Boîte Total en Lettres",
-      totalInWords_label: "'Arrêté la présente facture...'",
-      totalInWords_value: "Le montant en lettres",
+      totalInWords_label: "Libellé 'Arrêté...'",
+      totalInWords_value: "Montant en lettres",
     },
   },
   footer: {
@@ -43,11 +47,13 @@ const themeStructure = {
       text: "Infos Entreprise",
     },
   },
-};
+});
 
-export default function ThemeEditor({ styles, onStyleChange }) {
+export default function ThemeEditor({ styles, onStyleChange, type }) {
   const [activeSection, setActiveSection] = useState("header");
   const [activeElement, setActiveElement] = useState("container");
+
+  const themeStructure = getThemeStructure(type);
 
   const handleElementSelect = (e) => {
     setActiveElement(e.target.value);
@@ -68,15 +74,6 @@ export default function ThemeEditor({ styles, onStyleChange }) {
       if (!currentStyles) return {};
     }
     return currentStyles;
-  };
-
-  const handleStyleChangeForElement = (property, value) => {
-    const path = getElementPath(activeElement);
-    let section = styles[activeSection];
-    for (let i = 0; i < path.length - 1; i++) {
-      section = section[path[i]];
-    }
-    onStyleChange(activeSection, path.join("."), property, value);
   };
 
   const handleCustomCssChange = (section, value) => {
@@ -125,7 +122,7 @@ export default function ThemeEditor({ styles, onStyleChange }) {
                 <option key={key} value={key}>
                   {label}
                 </option>
-              )
+              ),
             )}
           </select>
         </div>

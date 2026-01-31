@@ -18,8 +18,8 @@ export default function BonDeCommandePDF({ order, themeStyles }) {
   });
 
   const { data: savedTheme } = useQuery({
-    queryKey: ["theme"],
-    queryFn: window.electronAPI.getTheme,
+    queryKey: ["theme", "bon_de_commande"],
+    queryFn: () => window.electronAPI.getTheme("bon_de_commande"),
     enabled: !themeStyles,
   });
 
