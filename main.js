@@ -31,9 +31,11 @@ function createWindow() {
 // IPC Handler for Excel Export
 // This is placed here because it requires access to the Electron 'dialog'
 // module which is best handled in the main process.
+// Change the IPC handler to pass the 'db' instance
 ipcMain.handle("export-analysis-excel", async (event, { year, months }) => {
   try {
-    return await exportFinancialAnalysis(year, months);
+    // Pass 'db' as the first argument
+    return await exportFinancialAnalysis(db, year, months);
   } catch (error) {
     console.error("Export Error in Main Process:", error);
     throw error;

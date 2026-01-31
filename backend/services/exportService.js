@@ -1,14 +1,11 @@
 const ExcelJS = require("exceljs");
 const { app, dialog } = require("electron");
 const path = require("path");
-const fs = require("fs");
 
-// Importing existing services to fetch data
-const financeService = require("./financeService");
-const factureService = require("./factureService");
-const bdcService = require("./bonDeCommandeService");
-
-const exportFinancialAnalysis = async (year, months) => {
+/**
+ * Fix: Added 'db' parameter and implemented direct database queries
+ */
+const exportFinancialAnalysis = async (db, year, months) => {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Facturation App";
   workbook.lastModifiedBy = "Facturation App";
@@ -45,24 +42,63 @@ const exportFinancialAnalysis = async (year, months) => {
     const sheetName = monthNames[monthIndex];
     const sheet = workbook.addWorksheet(sheetName);
 
-    // Fetch data for the specific month/year
-    // Note: Assumes your services have methods to filter by date
-    const startDate = new Date(year, monthIndex, 1).toISOString();
-    const endDate = new Date(year, monthIndex + 1, 0, 23, 59, 59).toISOString();
+    // Date formatting for SQL comparison (YYYY-MM-DD)
+    const startDate = new Date(year, monthIndex, 1).toISOString().split("T")[0];
+    const endDate = new Date(year, monthIndex + 1, 0)
+      .toISOString()
+      .split("T")[0];
 
-    const incomes = await financeService.getIncomesByDateRange(
-      startDate,
-      endDate,
-    );
-    const expenses = await financeService.getExpensesByDateRange(
-      startDate,
-      endDate,
-    );
-    const factures = await factureService.getFacturesByDateRange(
-      startDate,
-      endDate,
-    );
-    const bdcs = await bdcService.getBDCsByDateRange(startDate, endDate);
+    // --- Direct Database Queries ---
+
+    // 1. Fetch Incomes
+    const incomes = db
+      .prepare(
+        `
+      SELECT amount as montant, date, contact_person as clientNom, description, 
+             category as categorie, payment_method as modePaiement, 
+             cheque_number as numCheque, transaction_ref as reference 
+      FROM incomes 
+      WHERE date BETWEEN ? AND ?
+    `,
+      )
+      .all(startDate, endDate);
+
+    // 2. Fetch Expenses
+    const expenses = db
+      .prepare(
+        `
+      SELECT amount as montant, date, contact_person as clientNom, description, 
+             category as categorie, payment_method as modePaiement, 
+             cheque_number as numCheque, transaction_ref as reference 
+      FROM expenses 
+      WHERE date BETWEEN ? AND ?
+    `,
+      )
+      .all(startDate, endDate);
+
+    // 3. Fetch Factures with Payment Status
+    const factures = db
+      .prepare(
+        `
+      SELECT id, date, facture_number as numero, clientName as clientNom, total,
+             (SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE facture_id = factures.id) as totalPaid
+      FROM factures 
+      WHERE date BETWEEN ? AND ?
+    `,
+      )
+      .all(startDate, endDate);
+
+    // 4. Fetch BDCs with Payment Status
+    const bdcs = db
+      .prepare(
+        `
+      SELECT id, date, order_number as numero, supplierName as clientNom, total,
+             (SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE bon_de_commande_id = bon_de_commande.id) as totalPaid
+      FROM bon_de_commande 
+      WHERE date BETWEEN ? AND ?
+    `,
+      )
+      .all(startDate, endDate);
 
     let currentLine = 1;
 
@@ -78,30 +114,26 @@ const exportFinancialAnalysis = async (year, months) => {
     currentLine = addTableTitle("TABLEAU DES REVENUS (INCOME)", currentLine);
     const incomeTable = [
       [
-        "ID",
         "Date",
-        "Nom Client",
+        "Client",
         "Description",
         "Catégorie",
-        "Mode de Paiement",
-        "Détails Paiement",
+        "Mode",
+        "Détails",
+        "Montant",
       ],
     ];
     let monthIncomeTotal = 0;
     incomes.forEach((item) => {
-      let details = "";
-      if (item.modePaiement === "Chèque") details = item.numCheque || "";
-      else if (["Virement", "Versement"].includes(item.modePaiement))
-        details = item.reference || "";
-
+      const details = item.numCheque || item.reference || "";
       incomeTable.push([
-        item.id,
         new Date(item.date).toLocaleDateString(),
         item.clientNom,
         item.description,
         item.categorie,
         item.modePaiement,
         details,
+        item.montant,
       ]);
       monthIncomeTotal += item.montant;
     });
@@ -112,30 +144,26 @@ const exportFinancialAnalysis = async (year, months) => {
     currentLine = addTableTitle("TABLEAU DES DÉPENSES (EXPENSES)", currentLine);
     const expenseTable = [
       [
-        "ID",
         "Date",
-        "Nom Fournisseur",
+        "Fournisseur",
         "Description",
         "Catégorie",
-        "Mode de Paiement",
-        "Détails Paiement",
+        "Mode",
+        "Détails",
+        "Montant",
       ],
     ];
     let monthExpenseTotal = 0;
     expenses.forEach((item) => {
-      let details = "";
-      if (item.modePaiement === "Chèque") details = item.numCheque || "";
-      else if (["Virement", "Versement"].includes(item.modePaiement))
-        details = item.reference || "";
-
+      const details = item.numCheque || item.reference || "";
       expenseTable.push([
-        item.id,
         new Date(item.date).toLocaleDateString(),
         item.clientNom,
         item.description,
         item.categorie,
         item.modePaiement,
         details,
+        item.montant,
       ]);
       monthExpenseTotal += item.montant;
     });
@@ -145,18 +173,18 @@ const exportFinancialAnalysis = async (year, months) => {
     // C. Facture Table
     currentLine = addTableTitle("TABLEAU DES FACTURES", currentLine);
     const factureTable = [
-      ["ID", "Date", "N° Facture", "Client", "Montant Total", "Statut"],
+      ["Date", "N° Facture", "Client", "Montant Total", "Statut"],
     ];
     factures.forEach((f) => {
+      const status = f.totalPaid >= f.total ? "Payée" : "Impayée";
       factureTable.push([
-        f.id,
         new Date(f.date).toLocaleDateString(),
         f.numero,
         f.clientNom,
         f.total,
-        f.statut,
+        status,
       ]);
-      if (f.statut === "Payée") summaryData.paidFactures++;
+      if (status === "Payée") summaryData.paidFactures++;
       else summaryData.unpaidFactures++;
     });
     sheet.addRows(factureTable);
@@ -165,18 +193,18 @@ const exportFinancialAnalysis = async (year, months) => {
     // D. Bon de Commande Table
     currentLine = addTableTitle("TABLEAU DES BONS DE COMMANDE", currentLine);
     const bdcTable = [
-      ["ID", "Date", "N° BDC", "Client", "Montant Total", "Statut"],
+      ["Date", "N° BDC", "Fournisseur", "Montant Total", "Statut"],
     ];
     bdcs.forEach((b) => {
+      const status = b.totalPaid >= b.total ? "Payée" : "Impayée";
       bdcTable.push([
-        b.id,
         new Date(b.date).toLocaleDateString(),
         b.numero,
         b.clientNom,
         b.total,
-        b.statut,
+        status,
       ]);
-      if (b.statut === "Payée") summaryData.paidBDC++;
+      if (status === "Payée") summaryData.paidBDC++;
       else summaryData.unpaidBDC++;
     });
     sheet.addRows(bdcTable);
@@ -196,7 +224,6 @@ const exportFinancialAnalysis = async (year, months) => {
       bdcs: bdcs.length,
     });
 
-    // Auto-fit columns (basic logic)
     sheet.columns.forEach((column) => {
       column.width = 20;
     });
@@ -204,13 +231,11 @@ const exportFinancialAnalysis = async (year, months) => {
 
   // FINAL SUMMARY SHEET
   const summarySheet = workbook.addWorksheet("Résumé Global");
-
   summarySheet.addRow(["RÉSUMÉ ANALYTIQUE FINANCIER"]).font = {
     bold: true,
     size: 16,
   };
   summarySheet.addRow([]);
-
   summarySheet.addRow(["MÉTRIQUES GLOBALES"]).font = { bold: true };
   summarySheet.addRow(["Total Factures", summaryData.totalFacturesCount]);
   summarySheet.addRow(["Total Bons de Commande", summaryData.totalBDCCount]);
@@ -223,33 +248,25 @@ const exportFinancialAnalysis = async (year, months) => {
   summarySheet.addRow([]);
 
   summarySheet.addRow(["RÉSULTATS FINANCIERS"]).font = { bold: true };
+  const benefit = summaryData.totalIncome - summaryData.totalExpenses;
   summarySheet.addRow(["Total Revenus", summaryData.totalIncome]);
   summarySheet.addRow(["Total Dépenses", summaryData.totalExpenses]);
-  const benefitRow = summarySheet.addRow([
-    "Bénéfice Net",
-    summaryData.totalIncome - summaryData.totalExpenses,
-  ]);
+  const benefitRow = summarySheet.addRow(["Bénéfice Net", benefit]);
   benefitRow.getCell(2).font = {
     bold: true,
-    color: {
-      argb:
-        summaryData.totalIncome - summaryData.totalExpenses >= 0
-          ? "FF006400"
-          : "FFFF0000",
-    },
+    color: { argb: benefit >= 0 ? "FF006400" : "FFFF0000" },
   };
   summarySheet.addRow([]);
 
   summarySheet.addRow(["DÉTAILS PAR MOIS"]).font = { bold: true };
-  const breakDownHeader = [
+  summarySheet.addRow([
     "Mois",
     "Revenus",
     "Dépenses",
     "Bénéfice",
     "N° Factures",
     "N° BDC",
-  ];
-  summarySheet.addRow(breakDownHeader).font = { bold: true };
+  ]).font = { bold: true };
   summaryData.monthlyBreakdown.forEach((m) => {
     summarySheet.addRow([
       m.month,
@@ -265,7 +282,6 @@ const exportFinancialAnalysis = async (year, months) => {
     column.width = 22;
   });
 
-  // Save Dialog
   const { filePath } = await dialog.showSaveDialog({
     title: "Exporter l'analyse financière",
     defaultPath: path.join(
