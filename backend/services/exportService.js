@@ -3,9 +3,11 @@ const { app, dialog } = require("electron");
 const path = require("path");
 
 /**
- * Export Service with merged headers, table borders, and colored table headers
+ * Export Service with merged headers, table borders, colored table headers,
+ * and support for a custom date range.
  */
-const exportFinancialAnalysis = async (db, year, months) => {
+const exportFinancialAnalysis = async (db, range) => {
+  const { start, end } = range;
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Facturation App";
   workbook.lastModifiedBy = "Facturation App";
@@ -57,12 +59,31 @@ const exportFinancialAnalysis = async (db, year, months) => {
     color: { argb: "FFFFFFFF" }, // White text
   };
 
-  for (const monthIndex of months) {
-    const sheetName = monthNames[monthIndex];
+  // Generate the list of month/year periods for the range
+  const periods = [];
+  let currentYear = start.year;
+  let currentMonth = start.month;
+
+  while (
+    currentYear < end.year ||
+    (currentYear === end.year && currentMonth <= end.month)
+  ) {
+    periods.push({ month: currentMonth, year: currentYear });
+    currentMonth++;
+    if (currentMonth > 11) {
+      currentMonth = 0;
+      currentYear++;
+    }
+  }
+
+  for (const period of periods) {
+    const sheetName = `${monthNames[period.month]} ${period.year}`;
     const sheet = workbook.addWorksheet(sheetName);
 
-    const startDate = new Date(year, monthIndex, 1).toISOString().split("T")[0];
-    const endDate = new Date(year, monthIndex + 1, 0)
+    const startDate = new Date(period.year, period.month, 1)
+      .toISOString()
+      .split("T")[0];
+    const endDate = new Date(period.year, period.month + 1, 0)
       .toISOString()
       .split("T")[0];
 
@@ -253,7 +274,7 @@ const exportFinancialAnalysis = async (db, year, months) => {
     summaryData.totalFacturesCount += factures.length;
     summaryData.totalBDCCount += bdcs.length;
     summaryData.monthlyBreakdown.push({
-      month: sheetName,
+      month: `${monthNames[period.month]} ${period.year}`,
       income: monthIncomeTotal,
       expenses: monthExpenseTotal,
       benefit: monthIncomeTotal - monthExpenseTotal,
@@ -371,7 +392,7 @@ const exportFinancialAnalysis = async (db, year, months) => {
     title: "Exporter l'analyse financière",
     defaultPath: path.join(
       app.getPath("downloads"),
-      `Analyse_Financiere_${year}.xlsx`,
+      `Analyse_Financiere_${start.year}_${end.year}.xlsx`,
     ),
     filters: [{ name: "Excel Files", extensions: ["xlsx"] }],
   });

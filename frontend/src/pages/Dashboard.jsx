@@ -32,6 +32,24 @@ export default function Dashboard() {
     };
   };
 
+  /**
+   * FIX: Added handleExport function to process the range from the modal
+   */
+  const handleExport = async (rangeData) => {
+    try {
+      // The modal sends { start: {year, month}, end: {year, month} }
+      const result = await window.electronAPI.exportAnalysisExcel({
+        range: rangeData,
+      });
+      if (result.success) {
+        console.log("Exportation réussie:", result.filePath);
+      }
+    } catch (error) {
+      console.error("Erreur d'exportation:", error);
+      throw error;
+    }
+  };
+
   // Fetch aggregate stats
   const {
     data: stats,
@@ -167,7 +185,6 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* New Export Button */}
           <button
             onClick={() => setIsExportModalOpen(true)}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg hover:shadow-emerald-500/20 active:scale-95"
@@ -391,10 +408,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Export Modal Component */}
+      {/* FIX: Passed handleExport to the Modal */}
       <ExportAnalysisModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
+        onExport={handleExport}
       />
     </div>
   );
