@@ -99,7 +99,7 @@ export default function App() {
       <div className="flex h-screen bg-gray-100 dark:bg-gray-900">
         <aside className="w-64 bg-white dark:bg-gray-800 shadow-md flex flex-col">
           <div className="p-6 text-2xl font-black text-blue-600">
-            Facturation Pro
+            Trevio Pro
           </div>
           <nav className="flex-1 px-4 space-y-2">
             {menuItems.map((item) => (

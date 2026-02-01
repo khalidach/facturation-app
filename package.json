@@ -16,7 +16,7 @@
   "author": "khalid achbboukh",
   "license": "ISC",
   "dependencies": {
-    "better-sqlite3": "^9.4.3",
+    "better-sqlite3": "^12.6.2",
     "chart.js": "^4.5.1",
     "chartjs-node-canvas": "^5.0.0",
     "exceljs": "^4.4.0",
@@ -26,13 +26,13 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "electron": "^28.2.3",
-    "electron-builder": "^24.9.1",
+    "electron": "^40.1.0",
+    "electron-builder": "^26.7.0",
     "wait-on": "^9.0.1"
   },
   "build": {
     "appId": "com.facturation.app",
-    "productName": "Facturation Pro",
+    "productName": "Trevio Pro",
     "asar": true,
     "files": [
       "main.js",
