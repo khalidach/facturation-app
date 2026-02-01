@@ -53,26 +53,71 @@ export default function FacturePDF({ facture, themeStyles }) {
       {/* Styles critiques pour le moteur de rendu PDF */}
       <style>
         {`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+          
           @media print {
-            body { -webkit-print-color-adjust: exact; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { margin: 0; size: A4; }
           }
+          .pdf-container { box-sizing: border-box; line-height: 1.5; }
           .pdf-container * { box-sizing: border-box; }
+          
+          /* Layout */
           .flex { display: flex; }
           .flex-col { flex-direction: column; }
           .flex-grow { flex-grow: 1; }
           .justify-between { justify-content: space-between; }
+          .justify-center { justify-content: center; }
+          .justify-end { justify-content: flex-end; }
           .items-center { align-items: center; }
           .items-start { align-items: flex-start; }
           .items-end { align-items: flex-end; }
-          .text-right { text-align: right; }
-          .uppercase { text-transform: uppercase; }
+          .flex-wrap { flex-wrap: wrap; }
+          
+          /* Spacing */
+          .mb-1 { margin-bottom: 4px; }
+          .mb-2 { margin-bottom: 8px; }
+          .mb-4 { margin-bottom: 16px; }
           .mb-8 { margin-bottom: 32px; }
           .mt-1 { margin-top: 4px; }
-          .gap-4 { gap: 16px; }
+          .mt-2 { margin-top: 8px; }
+          .mt-4 { margin-top: 16px; }
+          .p-2 { padding: 8px; }
+          .p-4 { padding: 16px; }
+          .pt-2 { padding-top: 8px; }
           .gap-2 { gap: 8px; }
-          .flex-wrap { flex-wrap: wrap; }
-          .justify-center { justify-content: center; }
+          .gap-4 { gap: 16px; }
           
+          /* Typography */
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .uppercase { text-transform: uppercase; }
+          .font-bold { font-weight: 700; }
+          .font-medium { font-weight: 500; }
+          .text-sm { font-size: 14px; }
+          .text-xs { font-size: 12px; }
+          .italic { font-style: italic; }
+          
+          /* Colors */
+          .bg-white { background-color: #ffffff; }
+          .bg-gray-50 { background-color: #f9fafb; }
+          .bg-gray-100 { background-color: #f3f4f6; }
+          .text-gray-400 { color: #9ca3af; }
+          .text-gray-500 { color: #6b7280; }
+          .text-gray-600 { color: #4b5563; }
+          .text-gray-700 { color: #374151; }
+          .text-gray-900 { color: #111827; }
+          .text-blue-600 { color: #2563eb; }
+          
+          /* Borders */
+          .border { border-width: 1px; border-style: solid; }
+          .border-t { border-top-width: 1px; border-style: solid; }
+          .border-b { border-bottom-width: 1px; border-style: solid; }
+          .border-gray-200 { border-color: #e5e7eb; }
+          .rounded-md { border-radius: 0.375rem; }
+          .rounded-lg { border-radius: 0.5rem; }
+
+          /* Tables */
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { padding: 12px 8px; border-bottom: 1px solid #e5e7eb; }
           tr { page-break-inside: avoid; }
