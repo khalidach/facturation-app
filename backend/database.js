@@ -131,39 +131,31 @@ CREATE TABLE IF NOT EXISTS bon_de_commande (
 `;
 
 const createSettingsTable = `CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);`;
-const createThemeTable = `CREATE TABLE IF NOT EXISTS theme (id INTEGER PRIMARY KEY CHECK (id = 1), styles TEXT);`;
+
+// FIX: Removed CHECK (id = 1) to allow multiple theme IDs (1 for Facture, 2 for Bon de Commande)
+const createThemeTable = `CREATE TABLE IF NOT EXISTS theme (id INTEGER PRIMARY KEY, styles TEXT);`;
+
 const createClientsTable = `CREATE TABLE IF NOT EXISTS clients (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, address TEXT, ice TEXT, email TEXT, phone TEXT, notes TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
 const createSuppliersTable = `CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, service_type TEXT, contact_person TEXT, email TEXT, phone TEXT, notes TEXT, createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`;
 
 // Index Creation Statements
 const createIndexes = [
-  // Factures Indexes
   "CREATE INDEX IF NOT EXISTS idx_factures_clientName ON factures(clientName);",
   "CREATE INDEX IF NOT EXISTS idx_factures_date ON factures(date);",
   "CREATE INDEX IF NOT EXISTS idx_factures_createdAt ON factures(createdAt);",
-
-  // Incomes Indexes
   "CREATE INDEX IF NOT EXISTS idx_incomes_date ON incomes(date);",
   "CREATE INDEX IF NOT EXISTS idx_incomes_facture_id ON incomes(facture_id);",
   "CREATE INDEX IF NOT EXISTS idx_incomes_category ON incomes(category);",
   "CREATE INDEX IF NOT EXISTS idx_incomes_bank_status ON incomes(in_bank, is_cashed);",
-
-  // Expenses Indexes
   "CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);",
   "CREATE INDEX IF NOT EXISTS idx_expenses_bc_id ON expenses(bon_de_commande_id);",
   "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);",
   "CREATE INDEX IF NOT EXISTS idx_expenses_bank_status ON expenses(in_bank, is_cashed);",
-
-  // Bon De Commande Indexes
   "CREATE INDEX IF NOT EXISTS idx_bc_supplierName ON bon_de_commande(supplierName);",
   "CREATE INDEX IF NOT EXISTS idx_bc_date ON bon_de_commande(date);",
   "CREATE INDEX IF NOT EXISTS idx_bc_createdAt ON bon_de_commande(createdAt);",
-
-  // Contacts Indexes
   "CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);",
   "CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);",
-
-  // Transfers Indexes
   "CREATE INDEX IF NOT EXISTS idx_transfers_date ON transfers(date);",
 ];
 
@@ -177,12 +169,8 @@ db.exec(createThemeTable);
 db.exec(createClientsTable);
 db.exec(createSuppliersTable);
 
-// Execute Index Creation
 createIndexes.forEach((idxQuery) => db.exec(idxQuery));
 
-/**
- * SELF-HEALING: Add missing columns for detailed bank tracking
- */
 function ensureColumns() {
   const financeTables = ["incomes", "expenses"];
   const newCols = [
@@ -236,7 +224,32 @@ function ensureColumns() {
 
 function runMigrations() {
   ensureColumns();
-  const LATEST_VERSION = 11; // Incremented for indexing
+
+  /**
+   * FIX: Migrate 'theme' table to remove the CHECK(id=1) constraint.
+   * This allows saving theme settings for 'bon_de_commande' (id=2).
+   */
+  try {
+    // Attempt a test insert to see if the constraint still exists
+    db.prepare("INSERT INTO theme (id, styles) VALUES (999, '{}')").run();
+    db.prepare("DELETE FROM theme WHERE id = 999").run();
+  } catch (e) {
+    if (e.code === "SQLITE_CONSTRAINT_CHECK") {
+      console.log("Migrating 'theme' table to remove ID constraints...");
+      const existingTheme = db
+        .prepare("SELECT styles FROM theme WHERE id = 1")
+        .get();
+      db.exec("DROP TABLE theme");
+      db.exec("CREATE TABLE theme (id INTEGER PRIMARY KEY, styles TEXT)");
+      if (existingTheme) {
+        db.prepare("INSERT INTO theme (id, styles) VALUES (1, ?)").run(
+          existingTheme.styles,
+        );
+      }
+    }
+  }
+
+  const LATEST_VERSION = 12;
   try {
     const row = db
       .prepare("SELECT value FROM settings WHERE key = 'db_version'")
