@@ -18,14 +18,16 @@ function createWindow() {
     },
   });
 
-  mainWindow.maximize();
-  mainWindow.show();
-
   const startUrl = isDev
     ? "http://localhost:5174"
     : `file://${path.join(__dirname, "frontend/dist/index.html")}`;
 
   mainWindow.loadURL(startUrl);
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.maximize();
+    mainWindow.show();
+    mainWindow.focus(); // ⭐ critical line
+  });
 }
 
 // IPC Handler for Excel Export
